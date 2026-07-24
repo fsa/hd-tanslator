@@ -19,6 +19,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [originalContent, setOriginalContent] = useState('');
   const [translationContent, setTranslationContent] = useState('');
+  const [savedTranslation, setSavedTranslation] = useState('');
   const [loading, setLoading] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -64,9 +65,12 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       }
 
       if (transResponse.ok) {
-        setTranslationContent(await transResponse.text());
+        const text = await transResponse.text();
+        setTranslationContent(text);
+        setSavedTranslation(text);
       } else {
         setTranslationContent('');
+        setSavedTranslation('');
       }
     } catch (err) {
       console.error('Failed to load content:', err);
@@ -236,6 +240,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           ) : (
             <EditableHighlighter
               value={translationContent}
+              original={savedTranslation}
               onChange={setTranslationContent}
               className="flex-grow-1"
               style={{
