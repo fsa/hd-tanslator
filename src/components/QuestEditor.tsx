@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button, ButtonGroup, Badge, Spinner } from 'react-bootstrap';
+import SyntaxHighlighter from './SyntaxHighlighter';
+import EditableHighlighter from './EditableHighlighter';
 
 interface QuestFile {
   id: number;
@@ -208,19 +210,19 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               <Spinner animation="border" size="sm" />
             </div>
           ) : (
-            <pre
-              className="flex-grow-1 overflow-auto p-3 mb-0"
+            <SyntaxHighlighter
+              content={originalContent || 'No content'}
+              className="flex-grow-1 overflow-auto p-3"
               style={{
                 fontFamily: 'monospace',
                 whiteSpace: 'pre-wrap',
                 wordWrap: 'break-word',
                 backgroundColor: '#f8f9fa',
                 fontSize: '14px',
-                lineHeight: '1.5'
+                lineHeight: '1.5',
+                margin: 0
               }}
-            >
-              {originalContent || 'No content'}
-            </pre>
+            />
           )}
         </div>
         <div className="d-flex flex-column overflow-auto" style={{ flex: '1 1 50%', minWidth: 0 }}>
@@ -232,13 +234,12 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               <Spinner animation="border" size="sm" />
             </div>
           ) : (
-            <textarea
+            <EditableHighlighter
               value={translationContent}
-              onChange={(e) => setTranslationContent(e.target.value)}
-              className="flex-grow-1 border-0 rounded-0 form-control"
+              onChange={setTranslationContent}
+              className="flex-grow-1"
               style={{
                 fontFamily: 'monospace',
-                resize: 'none',
                 fontSize: '14px',
                 lineHeight: '1.5'
               }}
