@@ -36,7 +36,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     writeTranslationFile(translationFilename, content);
 
     const translationSize = getTranslationFileSize(translationFilename);
-    updateTranslationStatus(name, true, translationFilename, translationSize);
+    updateTranslationStatus(name, 1, translationFilename, translationSize);
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

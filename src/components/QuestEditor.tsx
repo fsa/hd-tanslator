@@ -134,9 +134,9 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     }
   };
 
-  const handleDownload = () => {
+  const handleRefresh = () => {
     if (files.length === 0) return;
-    window.open(`/api/files/${files[currentIndex].name}/download`, '_blank');
+    loadContent(files[currentIndex].name);
   };
 
   if (loading) {
@@ -191,8 +191,8 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
             >
               {saveStatus === 'saving' ? 'Saving...' : 'Save'}
             </Button>
-            <Button variant="secondary" onClick={handleDownload}>
-              Download
+            <Button variant="outline-secondary" onClick={handleRefresh}>
+              Refresh
             </Button>
           </ButtonGroup>
           {saveStatus === 'saved' && <Badge bg="success">Saved</Badge>}
