@@ -1,46 +1,41 @@
-# Astro Starter Kit: Basics
+# Text Translator
+
+Веб-приложение для перевода текстов. Главная — выбор квестов, редактор — полноэкранный split-view с навигацией по файлам квеста.
+
+## Технологии
+
+- Astro 7 (SSR) + React islands
+- TypeScript
+- Bootstrap 5 (react-bootstrap)
+- SQLite (better-sqlite3)
+
+## Структура файлов
+
+Файлы имеют формат: `[Персонаж].[Подраздел].[Квест]_[ID]_orig.txt`
+
+- `LYRA.4.20_12_orig.txt` — оригинал
+- `LYRA.4.20_12.txt` — перевод
+
+## Маршруты
+
+- `/` — главное меню
+- `/quests` — список квестов
+- `/editor/[quest]` — редактор квеста
+- `/settings` — настройки
+
+## Запуск
 
 ```sh
-npm create astro@latest -- --template basics
+npm install
+npm run dev
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Dev-сервер: <http://localhost:3000>
 
-## 🚀 Project Structure
+## Настройки
 
-Inside of your Astro project, you'll see the following folders and files:
+Пути к файлам и API-ключи настраиваются через `/settings` или в `.env.local`:
 
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
-```
-
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- `ORIGINALS_DIR` — путь к папке с оригиналами
+- `TRANSLATIONS_DIR` — путь к папке с переводами
+- `OPENROUTER_API_KEY` — ключ OpenRouter (для будущего использования)

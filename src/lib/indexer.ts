@@ -12,6 +12,7 @@ import {
   getTranslationFileSize,
   translationFileExists
 } from './filesystem';
+import { getSetting } from './settings';
 
 const ORIG_REGEX = /^([A-Za-z0-9]+)\.(\d+)\.(\d+)_(\d+)_orig\.txt$/;
 
@@ -29,8 +30,8 @@ export function parseFilename(filename: string): FileMetadata | null {
 }
 
 export function reindex(): ReindexResult {
-  const originalsDir = import.meta.env.ORIGINALS_DIR || '/path/to/originals';
-  const translationsDir = import.meta.env.TRANSLATIONS_DIR || '/path/to/translations';
+  const originalsDir = getSetting('ORIGINALS_DIR');
+  const translationsDir = getSetting('TRANSLATIONS_DIR');
 
   // Get existing files from database
   const existingFiles = getAllFiles();

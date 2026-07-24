@@ -147,7 +147,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     <div className="d-flex flex-column vh-100">
       <div className="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-light">
         <div className="d-flex align-items-center gap-2">
-          <a href="/" className="btn btn-outline-secondary btn-sm">&larr; Back</a>
+          <a href="/quests" className="btn btn-outline-secondary btn-sm">&larr; Quests</a>
           <h5 className="mb-0">{quest}</h5>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -199,7 +199,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
         </div>
       )}
       <div className="flex-grow-1 overflow-hidden d-flex">
-        <div className="flex-grow-1 d-flex flex-column border-end overflow-auto">
+        <div className="d-flex flex-column border-end overflow-auto" style={{ flex: '1 1 50%', minWidth: 0 }}>
           <div className="p-2 border-bottom bg-light">
             <strong>Original</strong>
           </div>
@@ -223,7 +223,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
             </pre>
           )}
         </div>
-        <div className="flex-grow-1 d-flex flex-column overflow-auto">
+        <div className="d-flex flex-column overflow-auto" style={{ flex: '1 1 50%', minWidth: 0 }}>
           <div className="p-2 border-bottom bg-light">
             <strong>Translation</strong>
           </div>

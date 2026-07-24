@@ -45,7 +45,10 @@ export default function QuestList() {
 
   return (
     <Container className="py-4">
-      <h3 className="mb-3">Quests</h3>
+      <div className="d-flex align-items-center mb-3">
+        <a href="/" className="btn btn-outline-secondary btn-sm me-3">&larr; Menu</a>
+        <h3 className="mb-0">Quests</h3>
+      </div>
       <Form.Control
         type="text"
         placeholder="Search quests..."

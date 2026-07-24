@@ -51,6 +51,11 @@ export function getDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_files_section ON files(section);
     CREATE INDEX IF NOT EXISTS idx_files_quest ON files(quest);
     CREATE INDEX IF NOT EXISTS idx_files_character_section ON files(character, section);
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 
   return db;

@@ -1,12 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import { getSetting } from './settings';
 
 function getOriginalsDir(): string {
-  return import.meta.env.ORIGINALS_DIR || '/path/to/originals';
+  return getSetting('ORIGINALS_DIR');
 }
 
 function getTranslationsDir(): string {
-  return import.meta.env.TRANSLATIONS_DIR || '/path/to/translations';
+  return getSetting('TRANSLATIONS_DIR');
 }
 
 function validatePath(filePath: string, baseDir: string): boolean {
