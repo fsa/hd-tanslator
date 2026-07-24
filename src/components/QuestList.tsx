@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Container, Form, Spinner, Badge } from 'react-bootstrap';
+import { useState, useEffect, useMemo } from 'react';
+import { Container, Form, Spinner, Badge, Nav } from 'react-bootstrap';
 
 interface QuestItem {
   name: string;
@@ -14,6 +14,7 @@ export default function QuestList() {
   const [quests, setQuests] = useState<QuestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
 
   useEffect(() => {
     fetchQuests();
@@ -38,6 +39,18 @@ export default function QuestList() {
     setSearchQuery(q);
     fetchQuests(q);
   };
+
+  const characters = useMemo(() => {
+    const chars = new Set(quests.map(q => q.character));
+    return [...Array.from(chars).sort(), 'ALL'];
+  }, [quests]);
+
+  const effectiveCharacter = activeCharacter || characters[0] || 'ALL';
+
+  const filteredQuests = useMemo(() => {
+    if (effectiveCharacter === 'ALL') return quests;
+    return quests.filter(q => q.character === effectiveCharacter);
+  }, [quests, effectiveCharacter]);
 
   const handleOpen = (questName: string) => {
     window.location.href = `/editor/${questName}`;
@@ -65,32 +78,51 @@ export default function QuestList() {
           No quests found. Try running reindex first.
         </div>
       ) : (
-        <div className="list-group">
-          {quests.map((q) => (
-            <button
-              key={q.name}
-              type="button"
-              className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-              onClick={() => handleOpen(q.name)}
-            >
-              <span>
-                <strong>{q.character}</strong>
-                <span className="text-muted mx-1">.</span>
-                {q.section}
-                <span className="text-muted mx-1">.</span>
-                {q.quest}
-              </span>
-              <span>
-                <Badge bg="secondary" className="me-2">
-                  {q.translated_count}/{q.file_count}
-                </Badge>
-                <Badge bg={q.translated_count === q.file_count ? 'success' : 'warning'}>
-                  {q.translated_count === q.file_count ? 'done' : 'wip'}
-                </Badge>
-              </span>
-            </button>
-          ))}
-        </div>
+        <>
+          <Nav variant="tabs" className="mb-3">
+            {characters.map(char => {
+              const count = char === 'ALL'
+                ? quests.length
+                : quests.filter(q => q.character === char).length;
+              return (
+                <Nav.Item key={char}>
+                  <Nav.Link
+                    active={effectiveCharacter === char}
+                    onClick={() => setActiveCharacter(char)}
+                  >
+                    {char} <Badge bg="secondary" className="ms-1">{count}</Badge>
+                  </Nav.Link>
+                </Nav.Item>
+              );
+            })}
+          </Nav>
+          <div className="list-group">
+            {filteredQuests.map((q) => (
+              <button
+                key={q.name}
+                type="button"
+                className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                onClick={() => handleOpen(q.name)}
+              >
+                <span>
+                  <strong>{q.character}</strong>
+                  <span className="text-muted mx-1">.</span>
+                  {q.section}
+                  <span className="text-muted mx-1">.</span>
+                  {q.quest}
+                </span>
+                <span>
+                  <Badge bg="secondary" className="me-2">
+                    {q.translated_count}/{q.file_count}
+                  </Badge>
+                  <Badge bg={q.translated_count === q.file_count ? 'success' : 'warning'}>
+                    {q.translated_count === q.file_count ? 'done' : 'wip'}
+                  </Badge>
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </Container>
   );
