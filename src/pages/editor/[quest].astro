@@ -1,0 +1,10 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import QuestEditor from '../../components/QuestEditor';
+
+const { quest } = Astro.params;
+---
+
+<Layout>
+	<QuestEditor quest={quest!} client:load />
+</Layout>

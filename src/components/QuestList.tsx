@@ -1,0 +1,94 @@
+import { useState, useEffect } from 'react';
+import { Container, Form, Spinner, Badge } from 'react-bootstrap';
+
+interface QuestItem {
+  name: string;
+  character: string;
+  section: number;
+  quest: number;
+  file_count: number;
+  translated_count: number;
+}
+
+export default function QuestList() {
+  const [quests, setQuests] = useState<QuestItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    fetchQuests();
+  }, []);
+
+  const fetchQuests = async (query?: string) => {
+    setLoading(true);
+    try {
+      const url = query ? `/api/quests?q=${encodeURIComponent(query)}` : '/api/quests';
+      const response = await fetch(url);
+      const data = await response.json();
+      setQuests(data.quests || []);
+    } catch (err) {
+      console.error('Failed to fetch quests:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const q = e.target.value;
+    setSearchQuery(q);
+    fetchQuests(q);
+  };
+
+  const handleOpen = (questName: string) => {
+    window.location.href = `/editor/${questName}`;
+  };
+
+  return (
+    <Container className="py-4">
+      <h3 className="mb-3">Quests</h3>
+      <Form.Control
+        type="text"
+        placeholder="Search quests..."
+        value={searchQuery}
+        onChange={handleSearch}
+        className="mb-3"
+      />
+      {loading ? (
+        <div className="text-center py-5">
+          <Spinner animation="border" />
+        </div>
+      ) : quests.length === 0 ? (
+        <div className="text-muted text-center py-5">
+          No quests found. Try running reindex first.
+        </div>
+      ) : (
+        <div className="list-group">
+          {quests.map((q) => (
+            <button
+              key={q.name}
+              type="button"
+              className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+              onClick={() => handleOpen(q.name)}
+            >
+              <span>
+                <strong>{q.character}</strong>
+                <span className="text-muted mx-1">.</span>
+                {q.section}
+                <span className="text-muted mx-1">.</span>
+                {q.quest}
+              </span>
+              <span>
+                <Badge bg="secondary" className="me-2">
+                  {q.translated_count}/{q.file_count}
+                </Badge>
+                <Badge bg={q.translated_count === q.file_count ? 'success' : 'warning'}>
+                  {q.translated_count === q.file_count ? 'done' : 'wip'}
+                </Badge>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </Container>
+  );
+}

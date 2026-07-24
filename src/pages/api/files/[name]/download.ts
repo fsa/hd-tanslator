@@ -1,0 +1,54 @@
+import type { APIRoute } from 'astro';
+import { getFileByName } from '../../../../lib/database';
+import { readTranslationFile } from '../../../../lib/filesystem';
+
+export const prerender = false;
+
+export const GET: APIRoute = async ({ params }) => {
+  try {
+    const name = params.name;
+    if (!name) {
+      return new Response(JSON.stringify({ error: 'Name parameter required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const fileRecord = getFileByName(name);
+    if (!fileRecord) {
+      return new Response(JSON.stringify({ error: 'File not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!fileRecord.has_translation || !fileRecord.translation_filename) {
+      return new Response(JSON.stringify({ error: 'Translation not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const content = readTranslationFile(fileRecord.translation_filename);
+    if (content === null) {
+      return new Response(JSON.stringify({ error: 'Translation file not found on disk' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response(content, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${fileRecord.translation_filename}"`
+      }
+    });
+  } catch (error) {
+    console.error('Download error:', error);
+    return new Response(JSON.stringify({ error: 'Failed to download translation' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};
