@@ -19,6 +19,8 @@
     "better-sqlite3": "^13.0.1",
     "bootstrap": "^5.3.8",
     "diff": "^9.0.0",
+    "hunspell-dict-en-us": "^0.1.0",
+    "nspell": "^2.1.5",
     "prismjs": "^1.30.0",
     "react": "^19.2.8",
     "react-bootstrap": "^2.10.10",

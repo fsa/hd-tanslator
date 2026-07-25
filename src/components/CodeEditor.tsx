@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
-import { diffChars } from 'diff';
+import { checkSpelling, hasSpellCheck } from '../lib/spellcheck';
 
 interface CodeEditorProps {
   value: string;
@@ -48,7 +48,7 @@ function defineGameScriptLanguage(monaco: any) {
         [/\-{4,}/, 'separator'],
         [/\[[A-Za-z0-9_]*\]/, 'bracket-label'],
         [/\{[^}]*\}/, 'curly-tag'],
-        [/<[A-Za-z/][A-Za-z0-9_ ]*[^>]*>/, 'angle-tag'],
+        [/<[A-Za-z\/][A-Za-z0-9_ ]*[^>]*>/, 'angle-tag'],
         [/\u2014/, 'invalid-char'],
         [/  +/, 'double-space'],
       ],
@@ -79,6 +79,22 @@ function defineGameScriptLanguage(monaco: any) {
   });
 }
 
+// Spell check using nspell dictionary — only if dictionaries are available
+async function spellCheckMarkers(model: any, monaco: any, text: string): Promise<any[]> {
+  const available = await hasSpellCheck();
+  if (!available) return [];
+  const results = await checkSpelling(text);
+  return results.map(r => ({
+    severity: monaco.MarkerSeverity.Warning,
+    message: `Possible typo: "${r.word}"`,
+    startLineNumber: r.line,
+    startColumn: r.column,
+    endLineNumber: r.line,
+    endColumn: r.column + r.length,
+    source: 'spellcheck',
+  }));
+}
+
 export default function CodeEditor({ value, original, onChange, placeholder, className, style, readOnly }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
 
@@ -86,9 +102,17 @@ export default function CodeEditor({ value, original, onChange, placeholder, cla
     editorRef.current = editor;
     defineGameScriptLanguage(monaco);
     monaco.editor.setTheme('gamescript-theme');
+
+    // Trigger initial spell check
+    const model = editor.getModel();
+    if (model && !readOnly) {
+      spellCheckMarkers(model, monaco, editor.getValue()).then(markers => {
+        monaco.editor.setModelMarkers(model, 'spellcheck', markers);
+      });
+    }
   };
 
-  // Apply diff decorations + whitespace markers when content changes
+  // Apply diff decorations + whitespace markers + spell check when content changes
   useEffect(() => {
     if (!editorRef.current) return;
     const editor = editorRef.current;
@@ -119,13 +143,12 @@ export default function CodeEditor({ value, original, onChange, placeholder, cla
       }
     }
 
-    // Whitespace markers: double spaces and trailing spaces
+    // Whitespace markers
     const curLines = value.split('\n');
     for (let i = 0; i < curLines.length; i++) {
       const line = curLines[i];
       const lineNum = i + 1;
 
-      // Double spaces
       const doubleSpaceRe = /  +/g;
       let m;
       while ((m = doubleSpaceRe.exec(line)) !== null) {
@@ -135,7 +158,6 @@ export default function CodeEditor({ value, original, onChange, placeholder, cla
         });
       }
 
-      // Trailing spaces
       const trailMatch = / +$/.exec(line);
       if (trailMatch) {
         decorations.push({
@@ -146,7 +168,14 @@ export default function CodeEditor({ value, original, onChange, placeholder, cla
     }
 
     editor.deltaDecorations([], decorations);
-  }, [value, original]);
+
+    // Spell check markers
+    if (!readOnly) {
+      spellCheckMarkers(model, monaco, value).then(spellMarkers => {
+        monaco.editor.setModelMarkers(model, 'spellcheck', spellMarkers);
+      });
+    }
+  }, [value, original, readOnly]);
 
   return (
     <div className={className} style={{ ...style }}>

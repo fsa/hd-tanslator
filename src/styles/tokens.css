@@ -82,3 +82,9 @@
   background: rgba(220, 53, 69, 0.3);
   border-bottom: 2px solid #dc3545;
 }
+
+/* Monaco spell check markers */
+.spellcheck-warning {
+  background: rgba(255, 193, 7, 0.3);
+  border-bottom: 1px wavy #ffc107;
+}
