@@ -71,3 +71,14 @@
 .code-editor textarea {
   outline: none !important;
 }
+
+/* Monaco whitespace markers */
+.monaco-double-space {
+  background: rgba(220, 53, 69, 0.3);
+  border-bottom: 2px solid #dc3545;
+}
+
+.monaco-trailing-space {
+  background: rgba(220, 53, 69, 0.3);
+  border-bottom: 2px solid #dc3545;
+}

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button, ButtonGroup, Badge, Spinner } from 'react-bootstrap';
-import TextViewer from './TextViewer';
 import CodeEditor from './CodeEditor';
 
 interface QuestFile {
@@ -150,7 +149,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   const currentFile = files[currentIndex];
 
   return (
-    <div className="d-flex flex-column" style={{ minHeight: '100vh' }}>
+    <div className="d-flex flex-column" style={{ height: '100vh' }}>
       <div className="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-light">
         <div className="d-flex align-items-center gap-2">
           <a href="/quests" className="btn btn-outline-secondary btn-sm">&larr; Quests</a>
@@ -204,7 +203,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           <button type="button" className="btn-close btn-sm float-end" onClick={() => setError(null)} />
         </div>
       )}
-      <div className="d-flex" style={{ minHeight: 0 }}>
+      <div className="d-flex flex-grow-1" style={{ minHeight: 0 }}>
         <div className="d-flex flex-column border-end" style={{ flex: '1 1 50%', minWidth: 0 }}>
           <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
             <div>
@@ -222,19 +221,16 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               <Spinner animation="border" size="sm" />
             </div>
           ) : (
-            <TextViewer
-              content={originalContent || 'No content'}
+            <CodeEditor
+              value={originalContent || 'No content'}
+              onChange={() => {}}
+              readOnly
               className="flex-grow-1"
-              style={{
-                fontFamily: 'monospace',
-                fontSize: '14px',
-                lineHeight: '1.5',
-                backgroundColor: '#f8f9fa'
-              }}
+              style={{ flex: 1 }}
             />
           )}
         </div>
-        <div className="d-flex flex-column" style={{ flex: '1 1 50%', minWidth: 0 }}>
+        <div className="d-flex flex-column" style={{ flex: '1 1 50%', minWidth: 0, overflow: 'hidden' }}>
           <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
             <div>
               <strong>Translation</strong>
