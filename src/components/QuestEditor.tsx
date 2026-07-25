@@ -92,21 +92,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     }
   }, [currentIndex, files.length]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key === 'ArrowLeft') {
-        e.preventDefault();
-        goPrev();
-      } else if (e.altKey && e.key === 'ArrowRight') {
-        e.preventDefault();
-        goNext();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goPrev, goNext]);
-
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (files.length === 0) return;
     const currentFile = files[currentIndex];
 
@@ -132,7 +118,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       setSaveStatus('error');
       setError('Failed to save');
     }
-  };
+  }, [files, currentIndex, translationContent]);
 
   const handleRefresh = () => {
     if (files.length === 0) return;
