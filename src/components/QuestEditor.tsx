@@ -23,6 +23,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   const [loading, setLoading] = useState(true);
   const [contentLoading, setContentLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -125,6 +126,17 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     loadContent(files[currentIndex].name);
   };
 
+  const handleCopyOriginal = async () => {
+    await navigator.clipboard.writeText(originalContent);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePaste = async () => {
+    const text = await navigator.clipboard.readText();
+    setTranslationContent(text);
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -192,8 +204,11 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       )}
       <div className="flex-grow-1 overflow-hidden d-flex">
         <div className="d-flex flex-column border-end overflow-auto" style={{ flex: '1 1 50%', minWidth: 0 }}>
-          <div className="p-2 border-bottom bg-light">
+          <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
             <strong>Original</strong>
+            <Button variant="outline-secondary" size="sm" onClick={handleCopyOriginal}>
+              {copied ? 'Copied!' : 'Copy'}
+            </Button>
           </div>
           {contentLoading ? (
             <div className="d-flex justify-content-center align-items-center flex-grow-1">
@@ -216,8 +231,15 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           )}
         </div>
         <div className="d-flex flex-column overflow-auto" style={{ flex: '1 1 50%', minWidth: 0 }}>
-          <div className="p-2 border-bottom bg-light">
+          <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
             <strong>Translation</strong>
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              onClick={handlePaste}
+            >
+              Paste
+            </Button>
           </div>
           {contentLoading ? (
             <div className="d-flex justify-content-center align-items-center flex-grow-1">
