@@ -257,6 +257,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           ) : (
             <CodeEditor
               value={translationContent}
+              original={savedTranslation}
               onChange={setTranslationContent}
               placeholder="Type translation here..."
               className="flex-grow-1"

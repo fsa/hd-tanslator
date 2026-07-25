@@ -1,22 +1,23 @@
 import EditorModule from 'react-simple-code-editor';
-const Editor = (EditorModule as any).default || EditorModule;
-import Prism from 'prismjs';
-import '../lib/prism-grammar';
+import { highlightCode } from '../lib/prism-grammar';
+
+const SimpleEditor = (EditorModule as any).default || EditorModule;
 
 interface CodeEditorProps {
   value: string;
+  original?: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export default function CodeEditor({ value, onChange, placeholder, className, style }: CodeEditorProps) {
+export default function CodeEditor({ value, original, onChange, placeholder, className, style }: CodeEditorProps) {
   return (
-    <Editor
+    <SimpleEditor
       value={value}
       onValueChange={onChange}
-      highlight={(code) => Prism.highlight(code, Prism.languages.gamescript, 'gamescript')}
+      highlight={(code) => highlightCode(code, original)}
       padding={10}
       placeholder={placeholder}
       className={className}
