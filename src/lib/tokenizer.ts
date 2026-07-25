@@ -185,11 +185,11 @@ function findNextToken(text: string): Match | null {
     }
   }
 
-  // 7. Invalid hyphens (U+002D) — game only accepts minus (U+2212)
-  const hyphenRe = /\-/g;
-  while ((m = hyphenRe.exec(text)) !== null) {
+  // 7. Invalid em dashes (U+2014) — game doesn't recognize them
+  const emDashRe = /\u2014/g;
+  while ((m = emDashRe.exec(text)) !== null) {
     if (!best || m.index < best.index) {
-      best = { index: m.index, token: { type: 'invalid-hyphen', value: '-', cssClass: 'tok-invalid' } };
+      best = { index: m.index, token: { type: 'invalid-hyphen', value: '\u2014', cssClass: 'tok-invalid' } };
     }
   }
 

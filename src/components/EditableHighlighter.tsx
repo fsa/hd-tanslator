@@ -1,5 +1,5 @@
-import { useRef, useMemo } from 'react';
-import { diffLines } from 'diff';
+import { useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import { diffLines, diffChars } from 'diff';
 import { tokenizeLine } from '../lib/tokenizer';
 
 interface EditableHighlighterProps {
@@ -43,56 +43,140 @@ function renderTokenizedLine(line: string): string {
   }).join('');
 }
 
+function renderDiffLine(origLine: string, curLine: string): string {
+  const diffs = diffChars(origLine, curLine);
+  let result = '';
+  for (const part of diffs) {
+    if (part.added) {
+      result += '<span class="diff-char-added">' + esc(part.value) + '</span>';
+    } else if (!part.removed) {
+      // Unchanged — escape only, no whitespace error checks
+      // (whitespace is checked on the full line in renderLineHtml)
+      result += esc(part.value);
+    }
+  }
+  return result || ' ';
+}
+
+/**
+ * Compute line-level diff and build a map: current line index -> original line text.
+ */
+function computeDiffMaps(original: string | undefined, current: string) {
+  const curLines = current.split('\n');
+  const origForLine: (string | undefined)[] = new Array(curLines.length);
+  const changed = new Set<number>();
+
+  if (original === undefined) {
+    return { origForLine, changed };
+  }
+
+  const lineChanges = diffLines(original, current);
+  let curIdx = 0;
+
+  // Build list of removed lines to pair with added lines
+  const removedLines: string[] = [];
+
+  for (const lc of lineChanges) {
+    const lcLines = lc.value.split('\n');
+    if (lcLines[lcLines.length - 1] === '') lcLines.pop();
+
+    if (lc.removed) {
+      removedLines.push(...lcLines);
+    }
+  }
+
+  // Now pair added lines with removed lines
+  curIdx = 0;
+  let removedIdx = 0;
+
+  for (const lc of lineChanges) {
+    const lcLines = lc.value.split('\n');
+    if (lcLines[lcLines.length - 1] === '') lcLines.pop();
+
+    if (lc.added) {
+      for (const line of lcLines) {
+        if (curIdx < curLines.length) {
+          changed.add(curIdx);
+          origForLine[curIdx] = removedIdx < removedLines.length ? removedLines[removedIdx] : undefined;
+          removedIdx++;
+        }
+        curIdx++;
+      }
+    } else if (!lc.removed) {
+      curIdx += lcLines.length;
+    }
+  }
+
+  return { origForLine, changed };
+}
+
+interface PopoverState {
+  lineIdx: number;
+  origText: string;
+  x: number;
+  y: number;
+}
+
 export default function EditableHighlighter({ value, original, onChange, className, style }: EditableHighlighterProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   const gutterRef = useRef<HTMLDivElement>(null);
+  const [popover, setPopover] = useState<PopoverState | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const curLines = value.split('\n');
 
-  const { html, changedSet } = useMemo(() => {
-    if (original === undefined) {
-      return {
-        html: curLines.map(l => renderTokenizedLine(l)),
-        changedSet: new Set<number>()
-      };
-    }
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (closeTimer.current) clearTimeout(closeTimer.current); };
+  }, []);
 
-    const lineChanges = diffLines(original, value);
-    const result: string[] = new Array(curLines.length);
-    const changed = new Set<number>();
-    let curIdx = 0;
+  const { html, changedSet, origForLine } = useMemo(() => {
+    const { origForLine, changed } = computeDiffMaps(original, value);
+    const result: string[] = [];
 
-    for (const lc of lineChanges) {
-      const lcLines = lc.value.split('\n');
-      if (lcLines[lcLines.length - 1] === '') lcLines.pop();
-
-      if (lc.added) {
-        for (const line of lcLines) {
-          if (curIdx < result.length) {
-            changed.add(curIdx);
-            result[curIdx] = renderTokenizedLine(line);
-          }
-          curIdx++;
-        }
-      } else if (!lc.removed) {
-        for (const line of lcLines) {
-          if (curIdx < result.length) {
-            result[curIdx] = renderTokenizedLine(line);
-          }
-          curIdx++;
-        }
+    for (let i = 0; i < curLines.length; i++) {
+      if (changed.has(i) && origForLine[i] !== undefined) {
+        // Changed line — render with character-level diff
+        result.push(renderDiffLine(origForLine[i]!, curLines[i]));
+      } else {
+        result.push(renderTokenizedLine(curLines[i]));
       }
     }
 
-    // Fill any remaining slots
-    while (curIdx < result.length) {
-      result[curIdx] = renderTokenizedLine(curLines[curIdx]);
-      curIdx++;
-    }
-
-    return { html: result, changedSet: changed };
+    return { html: result, changedSet: changed, origForLine };
   }, [value, original]);
+
+  const handleLineHover = useCallback((lineIdx: number, e: React.MouseEvent) => {
+    if (!changedSet.has(lineIdx)) {
+      setPopover(null);
+      return;
+    }
+    const orig = origForLine[lineIdx];
+    if (orig === undefined) {
+      setPopover(null);
+      return;
+    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setPopover({
+      lineIdx,
+      origText: orig,
+      x: rect.right + 8,
+      y: rect.top,
+    });
+  }, [changedSet, origForLine]);
+
+  const handleLineLeave = useCallback(() => {
+    closeTimer.current = setTimeout(() => setPopover(null), 200);
+  }, []);
+
+  const handlePopoverEnter = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
+  const handlePopoverLeave = useCallback(() => {
+    setPopover(null);
+  }, []);
 
   const gutterHtml = useMemo(() => {
     return curLines.map((_, i) => {
@@ -113,7 +197,19 @@ export default function EditableHighlighter({ value, original, onChange, classNa
 
   return (
     <div className={className} style={{ display: 'flex', position: 'relative', ...style }}>
-      <div ref={gutterRef} className="diff-gutter" dangerouslySetInnerHTML={{ __html: gutterHtml }} />
+      <div
+        ref={gutterRef}
+        className="diff-gutter"
+        dangerouslySetInnerHTML={{ __html: gutterHtml }}
+        onMouseLeave={handleLineLeave}
+        onMouseOver={(e) => {
+          const target = e.target as HTMLElement;
+          const div = target.closest('.gutter-added');
+          if (!div) { setPopover(null); return; }
+          const idx = Array.from(div.parentElement!.children).indexOf(div);
+          if (idx >= 0) handleLineHover(idx, e);
+        }}
+      />
       <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
         <div
           ref={highlightRef}
@@ -128,6 +224,17 @@ export default function EditableHighlighter({ value, original, onChange, classNa
           className="editor-textarea"
         />
       </div>
+      {popover && (
+        <div
+          className="diff-popover"
+          style={{ position: 'fixed', left: popover.x, top: popover.y, zIndex: 1000 }}
+          onMouseEnter={handlePopoverEnter}
+          onMouseLeave={handlePopoverLeave}
+        >
+          <div className="diff-popover-label">Original:</div>
+          <pre className="diff-popover-text">{popover.origText}</pre>
+        </div>
+      )}
     </div>
   );
 }
