@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button, ButtonGroup, Badge, Spinner } from 'react-bootstrap';
-import SyntaxHighlighter from './SyntaxHighlighter';
+import TextViewer from './TextViewer';
 import EditableHighlighter from './EditableHighlighter';
 
 interface QuestFile {
   id: number;
   name: string;
   file_id: string;
+  original_filename: string;
+  translation_filename: string | null;
   has_translation: boolean;
 }
 
@@ -205,7 +207,12 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       <div className="flex-grow-1 overflow-hidden d-flex">
         <div className="d-flex flex-column border-end overflow-auto" style={{ flex: '1 1 50%', minWidth: 0 }}>
           <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
-            <strong>Original</strong>
+            <div>
+              <strong>Original</strong>
+              <span className="text-muted ms-2" style={{ fontSize: '0.85em' }}>
+                {currentFile?.original_filename}
+              </span>
+            </div>
             <Button variant="outline-secondary" size="sm" onClick={handleCopyOriginal}>
               {copied ? 'Copied!' : 'Copy'}
             </Button>
@@ -215,16 +222,14 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               <Spinner animation="border" size="sm" />
             </div>
           ) : (
-            <SyntaxHighlighter
+            <TextViewer
               content={originalContent || 'No content'}
-              className="flex-grow-1 overflow-auto p-3"
+              className="flex-grow-1 overflow-auto"
               style={{
                 fontFamily: 'monospace',
-                whiteSpace: 'pre-wrap',
-                wordWrap: 'break-word',
-                backgroundColor: '#f8f9fa',
                 fontSize: '14px',
                 lineHeight: '1.5',
+                backgroundColor: '#f8f9fa',
                 margin: 0
               }}
             />
@@ -232,7 +237,12 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
         </div>
         <div className="d-flex flex-column overflow-auto" style={{ flex: '1 1 50%', minWidth: 0 }}>
           <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
-            <strong>Translation</strong>
+            <div>
+              <strong>Translation</strong>
+              <span className="text-muted ms-2" style={{ fontSize: '0.85em' }}>
+                {currentFile?.translation_filename || '(not created)'}
+              </span>
+            </div>
             <Button
               variant="outline-secondary"
               size="sm"
