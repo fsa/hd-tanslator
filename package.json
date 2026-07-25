@@ -18,14 +18,17 @@
     "better-sqlite3": "^13.0.1",
     "bootstrap": "^5.3.8",
     "diff": "^9.0.0",
+    "prismjs": "^1.30.0",
     "react": "^19.2.8",
     "react-bootstrap": "^2.10.10",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-simple-code-editor": "^0.14.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@types/better-sqlite3": "^7.6.13",
     "@types/diff": "^7.0.2",
+    "@types/prismjs": "^1.26.6",
     "typescript": "^6.0.3"
   }
 }

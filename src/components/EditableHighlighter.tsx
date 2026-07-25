@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import { useRef, useMemo } from 'react';
 import { diffLines, diffChars } from 'diff';
 import { tokenizeLine } from '../lib/tokenizer';
 
@@ -43,198 +43,56 @@ function renderTokenizedLine(line: string): string {
   }).join('');
 }
 
-function renderDiffLine(origLine: string, curLine: string): string {
-  const diffs = diffChars(origLine, curLine);
-  let result = '';
-  for (const part of diffs) {
-    if (part.added) {
-      result += '<span class="diff-char-added">' + esc(part.value) + '</span>';
-    } else if (!part.removed) {
-      // Unchanged — escape only, no whitespace error checks
-      // (whitespace is checked on the full line in renderLineHtml)
-      result += esc(part.value);
-    }
-  }
-  return result || ' ';
-}
-
-/**
- * Compute line-level diff and build a map: current line index -> original line text.
- */
-function computeDiffMaps(original: string | undefined, current: string) {
-  const curLines = current.split('\n');
-  const origForLine: (string | undefined)[] = new Array(curLines.length);
+function computeChangedLines(original: string | undefined, current: string): Set<number> {
   const changed = new Set<number>();
-
-  if (original === undefined) {
-    return { origForLine, changed };
+  if (original === undefined) return changed;
+  const origSet = new Set(original.split('\n'));
+  const curLines = current.split('\n');
+  for (let i = 0; i < curLines.length; i++) {
+    if (!origSet.has(curLines[i])) changed.add(i);
   }
-
-  const lineChanges = diffLines(original, current);
-  let curIdx = 0;
-
-  // Build list of removed lines to pair with added lines
-  const removedLines: string[] = [];
-
-  for (const lc of lineChanges) {
-    const lcLines = lc.value.split('\n');
-    if (lcLines[lcLines.length - 1] === '') lcLines.pop();
-
-    if (lc.removed) {
-      removedLines.push(...lcLines);
-    }
-  }
-
-  // Now pair added lines with removed lines
-  curIdx = 0;
-  let removedIdx = 0;
-
-  for (const lc of lineChanges) {
-    const lcLines = lc.value.split('\n');
-    if (lcLines[lcLines.length - 1] === '') lcLines.pop();
-
-    if (lc.added) {
-      for (const line of lcLines) {
-        if (curIdx < curLines.length) {
-          changed.add(curIdx);
-          origForLine[curIdx] = removedIdx < removedLines.length ? removedLines[removedIdx] : undefined;
-          removedIdx++;
-        }
-        curIdx++;
-      }
-    } else if (!lc.removed) {
-      curIdx += lcLines.length;
-    }
-  }
-
-  return { origForLine, changed };
-}
-
-interface PopoverState {
-  lineIdx: number;
-  origText: string;
-  x: number;
-  y: number;
+  return changed;
 }
 
 export default function EditableHighlighter({ value, original, onChange, className, style }: EditableHighlighterProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const highlightRef = useRef<HTMLDivElement>(null);
-  const gutterRef = useRef<HTMLDivElement>(null);
-  const [popover, setPopover] = useState<PopoverState | null>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const curLines = value.split('\n');
+  const changedSet = useMemo(() => computeChangedLines(original, value), [value, original]);
 
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => { if (closeTimer.current) clearTimeout(closeTimer.current); };
-  }, []);
-
-  const { html, changedSet, origForLine } = useMemo(() => {
-    const { origForLine, changed } = computeDiffMaps(original, value);
-    const result: string[] = [];
-
-    for (let i = 0; i < curLines.length; i++) {
-      if (changed.has(i) && origForLine[i] !== undefined) {
-        // Changed line — render with character-level diff
-        result.push(renderDiffLine(origForLine[i]!, curLines[i]));
-      } else {
-        result.push(renderTokenizedLine(curLines[i]));
-      }
-    }
-
-    return { html: result, changedSet: changed, origForLine };
-  }, [value, original]);
-
-  const handleLineHover = useCallback((lineIdx: number, e: React.MouseEvent) => {
-    if (!changedSet.has(lineIdx)) {
-      setPopover(null);
-      return;
-    }
-    const orig = origForLine[lineIdx];
-    if (orig === undefined) {
-      setPopover(null);
-      return;
-    }
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setPopover({
-      lineIdx,
-      origText: orig,
-      x: rect.right + 8,
-      y: rect.top,
-    });
-  }, [changedSet, origForLine]);
-
-  const handleLineLeave = useCallback(() => {
-    closeTimer.current = setTimeout(() => setPopover(null), 200);
-  }, []);
-
-  const handlePopoverEnter = useCallback(() => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-  }, []);
-
-  const handlePopoverLeave = useCallback(() => {
-    setPopover(null);
-  }, []);
-
-  const gutterHtml = useMemo(() => {
-    return curLines.map((_, i) => {
+  const html = useMemo(() => {
+    return curLines.map((line, i) => {
+      const rendered = renderTokenizedLine(line);
       if (changedSet.has(i)) {
-        return '<div class="gutter-added">' + (i + 1) + ' <span class="gutter-marker">+</span></div>';
+        return '<span class="diff-line-added">' + rendered + '</span>';
       }
-      return '<div>' + (i + 1) + '</div>';
-    }).join('');
-  }, [curLines, changedSet]);
+      return rendered;
+    }).join('\n');
+  }, [value, changedSet]);
 
   const handleScroll = () => {
-    if (textareaRef.current && highlightRef.current && gutterRef.current) {
-      highlightRef.current.scrollTop = textareaRef.current.scrollTop;
-      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
-      gutterRef.current.scrollTop = textareaRef.current.scrollTop;
+    if (textareaRef.current) {
+      const prev = textareaRef.current.previousElementSibling;
+      if (prev instanceof HTMLElement) {
+        prev.scrollTop = textareaRef.current.scrollTop;
+        prev.scrollLeft = textareaRef.current.scrollLeft;
+      }
     }
   };
 
   return (
-    <div className={className} style={{ display: 'flex', position: 'relative', ...style }}>
+    <div className={className} style={{ position: 'relative', ...style }}>
       <div
-        ref={gutterRef}
-        className="diff-gutter"
-        dangerouslySetInnerHTML={{ __html: gutterHtml }}
-        onMouseLeave={handleLineLeave}
-        onMouseOver={(e) => {
-          const target = e.target as HTMLElement;
-          const div = target.closest('.gutter-added');
-          if (!div) { setPopover(null); return; }
-          const idx = Array.from(div.parentElement!.children).indexOf(div);
-          if (idx >= 0) handleLineHover(idx, e);
-        }}
+        className="eh-backdrop"
+        dangerouslySetInnerHTML={{ __html: html }}
       />
-      <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
-        <div
-          ref={highlightRef}
-          className="highlight-layer"
-          dangerouslySetInnerHTML={{ __html: html.join('\n') }}
-        />
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onScroll={handleScroll}
-          className="editor-textarea"
-        />
-      </div>
-      {popover && (
-        <div
-          className="diff-popover"
-          style={{ position: 'fixed', left: popover.x, top: popover.y, zIndex: 1000 }}
-          onMouseEnter={handlePopoverEnter}
-          onMouseLeave={handlePopoverLeave}
-        >
-          <div className="diff-popover-label">Original:</div>
-          <pre className="diff-popover-text">{popover.origText}</pre>
-        </div>
-      )}
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onScroll={handleScroll}
+        className="eh-input"
+      />
     </div>
   );
 }

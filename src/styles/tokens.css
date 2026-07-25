@@ -2,212 +2,72 @@
    Syntax highlighting tokens
    ======================================================================== */
 
-/* ---- Separator ---- */
-.tok-separator {
-  color: #6c757d;
-  font-weight: bold;
-  letter-spacing: 2px;
-}
-
-/* ---- Bracket labels [NARR] [MAIN] etc. ---- */
-.tok-bracket {
-  color: #0d6efd;
-  font-weight: bold;
-}
-
-.tok-bracket-inner {
-  /* Default color, overridden by inline style for character names */
-}
-
+.tok-separator { color: #6c757d; font-weight: bold; letter-spacing: 2px; }
+.tok-bracket { color: #0d6efd; font-weight: bold; }
 .tok-bracket-narr { color: #6f42c1; }
 .tok-bracket-main { color: #0d6efd; }
 .tok-bracket-option { color: #fd7e14; }
+.tok-angle { color: #dc3545; font-weight: bold; }
+.tok-angle-inner { color: #dc3545; }
+.tok-curly { color: #fd7e14; font-weight: bold; }
+.tok-suffix { color: #6c757d; font-size: 0.9em; margin-left: 2px; }
+.tok-double-space { background: #dc3545; color: #fff; }
+.tok-trailing-space { background: #dc3545; color: #fff; }
+.tok-trailing-newline { background: #dc3545; color: #fff; }
+.tok-error { background: #dc3545; color: #fff; }
+.tok-invalid { background: #dc3545; color: #fff; }
 
-/* ---- Angle tags <if>, <else>, <b>, etc. ---- */
-.tok-angle {
-  color: #dc3545;
-  font-weight: bold;
-}
+/* ========================================================================
+   Prism token overrides — match our syntax colors
+   ======================================================================== */
 
-.tok-angle-inner {
-  color: #dc3545;
-}
+.token.tok-separator { color: #6c757d !important; font-weight: bold; letter-spacing: 2px; }
+.token.tok-bracket { font-weight: bold; }
+.token.tok-curly { font-weight: bold; }
+.token.tok-angle { color: #dc3545 !important; font-weight: bold; }
+.token.tok-double-space { background: #dc3545; color: #fff; }
+.token.tok-trailing-space { background: #dc3545; color: #fff; }
+.token.tok-invalid { background: #dc3545; color: #fff; }
 
-/* ---- Curly tags {NAME}, {PROF}, etc. ---- */
-.tok-curly {
-  color: #fd7e14;
-  font-weight: bold;
-}
-
-.tok-curly-inner {
-  /* Color set by inline style based on character name hash */
-}
-
-.tok-suffix {
-  color: #6c757d;
-  font-size: 0.9em;
-  margin-left: 2px;
-}
-
-/* ---- Whitespace issues ---- */
-.tok-double-space {
-  background: #dc3545;
-  color: #fff;
-}
-
-.tok-trailing-space {
-  background: #dc3545;
-  color: #fff;
-}
-
-.tok-trailing-newline {
-  background: #dc3545;
-  color: #fff;
-}
-
-/* ---- Error: extra chars on bracket/separator line ---- */
-.tok-error {
-  background: #dc3545;
-  color: #fff;
-}
-
-/* ---- Invalid hyphen (game only accepts minus U+2212) ---- */
-.tok-invalid {
-  background: #dc3545;
-  color: #fff;
-}
-
-/* ---- Diff highlighting (git-style) ---- */
-.diff-line {
-  height: 1.5em;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.diff-added {
-  background: rgba(46, 204, 113, 0.2);
-}
+/* ========================================================================
+   Diff
+   ======================================================================== */
 
 .diff-char-added {
   background: rgba(46, 204, 113, 0.35);
   border-bottom: 2px solid #2ecc71;
 }
 
-/* ---- Diff popover ---- */
-.diff-popover {
-  background: #fff;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 8px 12px;
-  max-width: 400px;
-  font-size: 13px;
-}
-
-.diff-popover-label {
-  font-weight: 600;
-  margin-bottom: 4px;
-  color: #6c757d;
-}
-
-.diff-popover-text {
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 4px;
-  padding: 6px 8px;
-  margin: 0 0 8px 0;
-  font-family: monospace;
-  font-size: 13px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  max-height: 150px;
-  overflow: auto;
-}
-
-/* ---- Line number gutter ---- */
-.diff-gutter {
-  font-family: monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  text-align: right;
-  color: #999;
-  user-select: none;
-  padding: 0.375rem 0.5rem 0.375rem 0;
-  border-right: 1px solid #dee2e6;
-  min-width: 3.5em;
-  overflow: hidden;
-  white-space: pre;
-}
-
-.diff-gutter > div {
-  height: 1.5em;
-  white-space: nowrap;
-}
-
-.diff-gutter > div {
-  min-height: 1.5em;
-  white-space: nowrap;
-}
-
-.gutter-removed {
-  background: rgba(231, 76, 60, 0.15);
-}
-
-.gutter-removed-num {
-  color: #dc3545;
-}
-
-.gutter-added {
-  background: rgba(46, 204, 113, 0.2);
-}
-
-.gutter-added-num {
-  color: #2ecc71;
-}
-
-.gutter-marker {
-  margin-left: 0.25em;
-  font-weight: bold;
+.diff-line-added {
+  background: rgba(46, 204, 113, 0.12);
 }
 
 /* ========================================================================
-   Editable highlighter overlay
+   TextViewer
    ======================================================================== */
 
 .highlight-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
   font-family: monospace;
   font-size: 14px;
   line-height: 1.5;
   white-space: pre-wrap;
-  word-wrap: break-word;
+  word-break: break-word;
   padding: 0.375rem 0.75rem;
-  overflow: auto;
-  pointer-events: none;
   color: #000;
-  background: transparent;
 }
 
-.editor-textarea {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  font-family: monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  resize: none;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: transparent;
-  caret-color: #000;
-  padding: 0.375rem 0.75rem;
-  margin: 0;
-  z-index: 1;
+/* ========================================================================
+   CodeEditor (react-simple-code-editor)
+   ======================================================================== */
+
+.code-editor textarea,
+.code-editor pre {
+  font-family: monospace !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  padding: 0.375rem 0.75rem !important;
+}
+
+.code-editor textarea {
+  outline: none !important;
 }

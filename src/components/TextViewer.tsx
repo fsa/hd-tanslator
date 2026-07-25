@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import { tokenizeLine } from '../lib/tokenizer';
 
 interface TextViewerProps {
@@ -41,37 +41,15 @@ function renderTokenizedLine(line: string): string {
 }
 
 export default function TextViewer({ content, className, style }: TextViewerProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
-  const gutterRef = useRef<HTMLDivElement>(null);
-
-  const curLines = content.split('\n');
-
   const html = useMemo(() => {
-    return curLines.map(line => renderTokenizedLine(line)).join('\n');
+    return content.split('\n').map(line => renderTokenizedLine(line)).join('\n');
   }, [content]);
 
-  const gutterHtml = useMemo(() => {
-    return curLines.map((_, i) => '<div>' + (i + 1) + '</div>').join('');
-  }, [curLines]);
-
-  const handleScroll = () => {
-    if (contentRef.current && gutterRef.current) {
-      gutterRef.current.scrollTop = contentRef.current.scrollTop;
-    }
-  };
-
   return (
-    <div className={className} style={{ display: 'flex', position: 'relative', ...style }}>
-      <div ref={gutterRef} className="diff-gutter" dangerouslySetInnerHTML={{ __html: gutterHtml }} />
-      <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
-        <div
-          ref={contentRef}
-          className="highlight-layer"
-          style={{ position: 'relative', overflow: 'auto' }}
-          onScroll={handleScroll}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </div>
-    </div>
+    <div
+      className={className}
+      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', ...style }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
