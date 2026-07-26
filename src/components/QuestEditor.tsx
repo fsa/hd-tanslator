@@ -282,32 +282,33 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center gap-2">
               <strong>Translation</strong>
-              <Button
-                variant={approved ? 'success' : 'outline-success'}
-                size="sm"
-                onClick={handleToggleApproved}
-                disabled={approving}
-                style={{ fontSize: '0.75em', padding: '0.1em 0.5em' }}
-              >
-                {approving ? (
-                  <Spinner animation="border" size="sm" />
-                ) : approved ? (
-                  'Approved'
-                ) : (
-                  'Approve'
-                )}
-              </Button>
               <span className="text-muted" style={{ fontSize: '0.85em' }}>
                 {currentFile?.translation_filename || '(not created)'}
               </span>
             </div>
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              onClick={handlePaste}
-            >
-              Paste
-            </Button>
+            <div className="d-flex align-items-center gap-2">
+              <Button
+                variant={approved ? 'success' : 'danger'}
+                size="sm"
+                onClick={handleToggleApproved}
+                disabled={approving}
+              >
+                {approving ? (
+                  <Spinner animation="border" size="sm" />
+                ) : approved ? (
+                  <>&#10003; Approved</>
+                ) : (
+                  <>&#10007; Unapproved</>
+                )}
+              </Button>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={handlePaste}
+              >
+                Paste
+              </Button>
+            </div>
           </div>
           {contentLoading ? (
             <div className="d-flex justify-content-center align-items-center flex-grow-1">
