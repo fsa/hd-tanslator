@@ -27,6 +27,8 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [approved, setApproved] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   useEffect(() => {
     fetchFiles();
@@ -56,9 +58,10 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     setContentLoading(true);
     setError(null);
     try {
-      const [origResponse, transResponse] = await Promise.all([
+      const [origResponse, transResponse, metadataResponse] = await Promise.all([
         fetch(`/api/files/${fileName}/orig`),
-        fetch(`/api/files/${fileName}/trans`)
+        fetch(`/api/files/${fileName}/trans`),
+        fetch(`/api/files/${fileName}/metadata`)
       ]);
 
       if (origResponse.ok) {
@@ -83,6 +86,14 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       } else {
         setTranslationContent('');
         setSavedTranslation('');
+      }
+
+      // Load metadata
+      if (metadataResponse.ok) {
+        const metadata = await metadataResponse.json();
+        setApproved(metadata.approved);
+      } else {
+        setApproved(false);
       }
     } catch (err) {
       console.error('Failed to load content:', err);
@@ -150,6 +161,31 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     setTranslationContent(text);
   };
 
+  const handleToggleApproved = async () => {
+    if (files.length === 0) return;
+    const currentFile = files[currentIndex];
+    const newApproved = !approved;
+
+    setApproving(true);
+    try {
+      const response = await fetch(`/api/files/${currentFile.name}/metadata`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved: newApproved })
+      });
+
+      if (response.ok) {
+        setApproved(newApproved);
+      } else {
+        setError('Failed to update approval status');
+      }
+    } catch (err) {
+      setError('Failed to update approval status');
+    } finally {
+      setApproving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -194,6 +230,20 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           )}
         </div>
         <div className="d-flex align-items-center gap-2">
+          <Button
+            variant={approved ? 'success' : 'outline-success'}
+            size="sm"
+            onClick={handleToggleApproved}
+            disabled={approving}
+          >
+            {approving ? (
+              <Spinner animation="border" size="sm" />
+            ) : approved ? (
+              'Approved'
+            ) : (
+              'Approve'
+            )}
+          </Button>
           <ButtonGroup size="sm">
             <Button
               variant="primary"

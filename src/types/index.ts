@@ -22,6 +22,13 @@ export interface FileMetadata {
   name: string;
 }
 
+export interface FileMetadataRecord {
+  file_name: string;
+  directory: string;
+  approved: boolean;
+  updated_at: string;
+}
+
 export interface ReindexResult {
   added: number;
   updated: number;
@@ -46,4 +53,10 @@ export interface QuestItem {
   quest: number;
   file_count: number;
   translated_count: number;
+}
+
+export interface MetadataExportRow {
+  file_name: string;
+  directory: string;
+  approved: boolean;
 }

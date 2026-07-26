@@ -1,16 +1,37 @@
 import { getDb } from './database';
+import path from 'path';
 
 export interface SettingDefaults {
   ORIGINALS_DIR: string;
   TRANSLATIONS_DIR: string;
   OPENROUTER_API_KEY: string;
+  LANG: string;
+  AUTHOR: string;
 }
 
-const DEFAULTS: SettingDefaults = {
-  ORIGINALS_DIR: import.meta.env.ORIGINALS_DIR || '',
-  TRANSLATIONS_DIR: import.meta.env.TRANSLATIONS_DIR || '',
-  OPENROUTER_API_KEY: import.meta.env.OPENROUTER_API_KEY || '',
-};
+function parseLangAuthorFromDir(dir: string): { lang: string; author: string } {
+  const basename = path.basename(dir);
+  const underscoreIndex = basename.indexOf('_');
+  if (underscoreIndex > 0 && underscoreIndex < basename.length - 1) {
+    return {
+      lang: basename.slice(0, underscoreIndex),
+      author: basename.slice(underscoreIndex + 1),
+    };
+  }
+  return { lang: '', author: '' };
+}
+
+const DEFAULTS: SettingDefaults = (() => {
+  const translationsDir = import.meta.env.TRANSLATIONS_DIR || '';
+  const { lang, author } = parseLangAuthorFromDir(translationsDir);
+  return {
+    ORIGINALS_DIR: import.meta.env.ORIGINALS_DIR || '',
+    TRANSLATIONS_DIR: translationsDir,
+    OPENROUTER_API_KEY: import.meta.env.OPENROUTER_API_KEY || '',
+    LANG: lang,
+    AUTHOR: author,
+  };
+})();
 
 export function getDefaults(): SettingDefaults {
   return { ...DEFAULTS };
@@ -36,6 +57,8 @@ export function getAllSettings(): SettingDefaults {
     ORIGINALS_DIR: overrides.ORIGINALS_DIR ?? DEFAULTS.ORIGINALS_DIR,
     TRANSLATIONS_DIR: overrides.TRANSLATIONS_DIR ?? DEFAULTS.TRANSLATIONS_DIR,
     OPENROUTER_API_KEY: overrides.OPENROUTER_API_KEY ?? DEFAULTS.OPENROUTER_API_KEY,
+    LANG: overrides.LANG ?? DEFAULTS.LANG,
+    AUTHOR: overrides.AUTHOR ?? DEFAULTS.AUTHOR,
   };
 }
 
@@ -55,4 +78,19 @@ export function resetSetting(key: keyof SettingDefaults): void {
 export function resetAllSettings(): void {
   const db = getDb();
   db.prepare('DELETE FROM settings').run();
+}
+
+/**
+ * Get the directory name used for metadata, constructed from LANG and AUTHOR settings.
+ * Falls back to TRANSLATIONS_DIR basename if LANG/AUTHOR are not set.
+ */
+export function getMetadataDirectory(): string {
+  const lang = getSetting('LANG');
+  const author = getSetting('AUTHOR');
+  if (lang && author) {
+    return `${lang}_${author}`;
+  }
+  // Fallback: parse from TRANSLATIONS_DIR
+  const translationsDir = getSetting('TRANSLATIONS_DIR');
+  return path.basename(translationsDir);
 }

@@ -1,26 +1,41 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Container, Button, Alert, Spinner, Form, InputGroup } from 'react-bootstrap';
 
 interface Settings {
   ORIGINALS_DIR: string;
   TRANSLATIONS_DIR: string;
   OPENROUTER_API_KEY: string;
+  LANG: string;
+  AUTHOR: string;
 }
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [defaults, setDefaults] = useState<Settings | null>(null);
-  const [editValues, setEditValues] = useState<Settings>({ ORIGINALS_DIR: '', TRANSLATIONS_DIR: '', OPENROUTER_API_KEY: '' });
+  const [editValues, setEditValues] = useState<Settings>({ ORIGINALS_DIR: '', TRANSLATIONS_DIR: '', OPENROUTER_API_KEY: '', LANG: '', AUTHOR: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [reindexing, setReindexing] = useState(false);
   const [reindexResult, setReindexResult] = useState<{ added: number; updated: number; removed: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<number | null>(null);
+  const [directories, setDirectories] = useState<string[]>([]);
+  const [selectedDirectory, setSelectedDirectory] = useState<string>('');
+  const [loadingDirs, setLoadingDirs] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    if (settings) {
+      fetchDirectories();
+    }
+  }, [settings]);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -34,6 +49,20 @@ export default function SettingsPage() {
       setError('Failed to load settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDirectories = async () => {
+    setLoadingDirs(true);
+    try {
+      const response = await fetch('/api/metadata/directories');
+      const data = await response.json();
+      setDirectories(data.directories || []);
+      setSelectedDirectory(data.current || '');
+    } catch (err) {
+      console.error('Failed to load directories:', err);
+    } finally {
+      setLoadingDirs(false);
     }
   };
 
@@ -102,6 +131,70 @@ export default function SettingsPage() {
     }
   };
 
+  const handleExportMetadata = async () => {
+    if (!selectedDirectory) return;
+    setExporting(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/metadata/export?directory=${encodeURIComponent(selectedDirectory)}`);
+      if (!response.ok) throw new Error('Export failed');
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedDirectory}-metadata-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setSuccess('Metadata exported successfully');
+      setTimeout(() => setSuccess(null), 2000);
+    } catch (err) {
+      setError('Failed to export metadata');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImportMetadata = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setError(null);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      const response = await fetch('/api/metadata/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setImportResult(result.imported);
+        setSuccess(`Imported ${result.imported} metadata records`);
+        setTimeout(() => setSuccess(null), 3000);
+        // Refresh directories after import
+        fetchDirectories();
+      } else {
+        const errData = await response.json();
+        setError(errData.error || 'Import failed');
+      }
+    } catch (err) {
+      setError('Failed to import metadata: invalid JSON file');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const renderSetting = (key: keyof Settings, label: string, type: string = 'text') => {
     const isSaving = saving === key;
     const defaultValue = defaults?.[key] || '';
@@ -163,6 +256,10 @@ export default function SettingsPage() {
       {renderSetting('ORIGINALS_DIR', 'Originals Directory')}
       {renderSetting('TRANSLATIONS_DIR', 'Translations Directory')}
 
+      <h5 className="mt-4">Translation Info</h5>
+      {renderSetting('LANG', 'Language')}
+      {renderSetting('AUTHOR', 'Author')}
+
       <h5 className="mt-4">API Keys</h5>
       {renderSetting('OPENROUTER_API_KEY', 'OpenRouter API Key', 'password')}
 
@@ -187,6 +284,73 @@ export default function SettingsPage() {
       {reindexResult && (
         <Alert variant="success" className="mt-3">
           Done! Added: {reindexResult.added}, Updated: {reindexResult.updated}, Removed: {reindexResult.removed}. Total: {reindexResult.total}
+        </Alert>
+      )}
+
+      <hr className="my-4" />
+
+      <h5>Translation Metadata</h5>
+      <p className="text-muted">
+        Export or import translation approval metadata. This is useful for backing up
+        which translations have been reviewed and approved, or restoring after a database reset.
+      </p>
+
+      <Form.Group className="mb-3">
+        <Form.Label className="fw-bold">Translation Directory</Form.Label>
+        {loadingDirs ? (
+          <Spinner animation="border" size="sm" />
+        ) : (
+          <Form.Select
+            value={selectedDirectory}
+            onChange={(e) => setSelectedDirectory(e.target.value)}
+          >
+            {directories.length === 0 && <option value="">No directories available</option>}
+            {directories.map(dir => (
+              <option key={dir} value={dir}>{dir}</option>
+            ))}
+          </Form.Select>
+        )}
+        <Form.Text className="text-muted">
+          Select which translation directory to export metadata for.
+        </Form.Text>
+      </Form.Group>
+
+      <div className="d-flex gap-2">
+        <Button
+          variant="primary"
+          onClick={handleExportMetadata}
+          disabled={exporting || !selectedDirectory}
+        >
+          {exporting ? (
+            <>
+              <Spinner animation="border" size="sm" className="me-2" />
+              Exporting...
+            </>
+          ) : 'Export Metadata'}
+        </Button>
+        <Button
+          variant="outline-primary"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={importing}
+        >
+          {importing ? (
+            <>
+              <Spinner animation="border" size="sm" className="me-2" />
+              Importing...
+            </>
+          ) : 'Import Metadata'}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          style={{ display: 'none' }}
+          onChange={handleImportMetadata}
+        />
+      </div>
+      {importResult !== null && (
+        <Alert variant="success" className="mt-3">
+          Successfully imported {importResult} metadata records.
         </Alert>
       )}
     </Container>

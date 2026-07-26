@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import type { FileRecord } from '../types';
+import type { FileRecord, FileMetadataRecord } from '../types';
 
 let db: Database.Database | null = null;
 
@@ -56,7 +56,52 @@ export function getDb(): Database.Database {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS file_metadata (
+      file_name TEXT NOT NULL,
+      directory TEXT NOT NULL DEFAULT '',
+      approved BOOLEAN NOT NULL DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (file_name, directory),
+      FOREIGN KEY (file_name) REFERENCES files(name) ON DELETE CASCADE
+    );
   `);
+
+  // Migration: recreate file_metadata with correct schema if it was created
+  // during development before directory support was added
+  try {
+    const oldSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='file_metadata' AND sql NOT LIKE '%directory%'").get();
+    if (oldSchema) {
+      db.exec(`DROP TABLE IF EXISTS file_metadata`);
+      db.exec(`
+        CREATE TABLE file_metadata (
+          file_name TEXT NOT NULL,
+          directory TEXT NOT NULL DEFAULT '',
+          approved BOOLEAN NOT NULL DEFAULT 0,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (file_name, directory),
+          FOREIGN KEY (file_name) REFERENCES files(name) ON DELETE CASCADE
+        )
+      `);
+    }
+  } catch {
+    // Ignore migration errors
+  }
+
+  // Migration: normalize directory values to basename only
+  // (in case records were created with full paths during development)
+  try {
+    const rowsWithPath = db.prepare(
+      `SELECT file_name, directory FROM file_metadata WHERE directory LIKE '%/%' OR directory LIKE '%\\%'`
+    ).all() as { file_name: string; directory: string }[];
+    for (const row of rowsWithPath) {
+      const basename = row.directory.split('/').pop()?.split('\\').pop() || row.directory;
+      db.prepare(`UPDATE file_metadata SET directory = ? WHERE file_name = ? AND directory = ?`)
+        .run(basename, row.file_name, row.directory);
+    }
+  } catch {
+    // Ignore migration errors
+  }
 
   return db;
 }
@@ -112,4 +157,78 @@ export function getFileCount(): number {
   const db = getDb();
   const result = db.prepare('SELECT COUNT(*) as count FROM files').get() as { count: number };
   return result.count;
+}
+
+// --- File Metadata ---
+
+export function getFileMetadata(fileName: string, directory: string): FileMetadataRecord | null {
+  const db = getDb();
+  return db.prepare('SELECT * FROM file_metadata WHERE file_name = ? AND directory = ?').get(fileName, directory) as FileMetadataRecord | null;
+}
+
+export function upsertFileMetadata(fileName: string, directory: string, approved: boolean): void {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO file_metadata (file_name, directory, approved, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(file_name, directory) DO UPDATE SET
+      approved = excluded.approved,
+      updated_at = CURRENT_TIMESTAMP
+  `).run(fileName, directory, approved ? 1 : 0);
+}
+
+export function getAllMetadata(): FileMetadataRecord[] {
+  const db = getDb();
+  return db.prepare('SELECT * FROM file_metadata ORDER BY directory, file_name').all() as FileMetadataRecord[];
+}
+
+export function deleteFileMetadata(fileName: string, directory: string): void {
+  const db = getDb();
+  db.prepare('DELETE FROM file_metadata WHERE file_name = ? AND directory = ?').run(fileName, directory);
+}
+
+export function importMetadata(rows: { file_name: string; directory: string; approved: boolean }[]): number {
+  const db = getDb();
+  let count = 0;
+  const stmt = db.prepare(`
+    INSERT INTO file_metadata (file_name, directory, approved, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(file_name, directory) DO UPDATE SET
+      approved = excluded.approved,
+      updated_at = CURRENT_TIMESTAMP
+  `);
+  const insertMany = db.transaction((items: { file_name: string; directory: string; approved: boolean }[]) => {
+    for (const item of items) {
+      // Normalize directory to basename (last path component)
+      const dir = item.directory.split('/').pop()?.split('\\').pop() || item.directory;
+      stmt.run(item.file_name, dir, item.approved ? 1 : 0);
+      count++;
+    }
+  });
+  insertMany(rows);
+  return count;
+}
+
+export function exportAllMetadata(directory?: string): { file_name: string; directory: string; approved: boolean }[] {
+  const db = getDb();
+  if (directory) {
+    return db.prepare(`
+      SELECT f.name as file_name, COALESCE(m.directory, ?) as directory, COALESCE(m.approved, 0) as approved
+      FROM files f
+      LEFT JOIN file_metadata m ON f.name = m.file_name AND m.directory = ?
+      ORDER BY f.name
+    `).all(directory, directory) as { file_name: string; directory: string; approved: boolean }[];
+  }
+  return db.prepare(`
+    SELECT f.name as file_name, COALESCE(m.directory, '') as directory, COALESCE(m.approved, 0) as approved
+    FROM files f
+    LEFT JOIN file_metadata m ON f.name = m.file_name
+    ORDER BY f.name
+  `).all() as { file_name: string; directory: string; approved: boolean }[];
+}
+
+export function getDistinctDirectories(): string[] {
+  const db = getDb();
+  const rows = db.prepare('SELECT DISTINCT directory FROM file_metadata ORDER BY directory').all() as { directory: string }[];
+  return rows.map(r => r.directory).filter(d => d !== '');
 }
