@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getFileByName } from '../../../../lib/database';
-import { readTranslationFile } from '../../../../lib/filesystem';
+import { readTranslationFile, readOriginalFile } from '../../../../lib/filesystem';
 
 export const prerender = false;
 
@@ -22,25 +22,33 @@ export const GET: APIRoute = async ({ params }) => {
       });
     }
 
-    if (!fileRecord.has_translation || !fileRecord.translation_filename) {
-      return new Response(JSON.stringify({ error: 'Translation not found' }), {
+    // If translation file exists on disk, return it
+    if (fileRecord.has_translation && fileRecord.translation_filename) {
+      const content = readTranslationFile(fileRecord.translation_filename);
+      if (content !== null) {
+        return new Response(content, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8'
+          }
+        });
+      }
+    }
+
+    // No translation yet — return original as starting point
+    const originalContent = readOriginalFile(fileRecord.original_filename);
+    if (originalContent === null) {
+      return new Response(JSON.stringify({ error: 'Original file not found on disk' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const content = readTranslationFile(fileRecord.translation_filename);
-    if (content === null) {
-      return new Response(JSON.stringify({ error: 'Translation file not found on disk' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    return new Response(content, {
+    return new Response(originalContent, {
       status: 200,
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8'
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Translation-Status': 'missing'
       }
     });
   } catch (error) {

@@ -27,6 +27,7 @@ export interface ReindexResult {
   updated: number;
   removed: number;
   total: number;
+  warnings?: string[];
 }
 
 export interface FileListItem {

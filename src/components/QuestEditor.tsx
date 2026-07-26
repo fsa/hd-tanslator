@@ -69,8 +69,17 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
 
       if (transResponse.ok) {
         const text = await transResponse.text();
-        setTranslationContent(text);
-        setSavedTranslation(text);
+        const isMissing = transResponse.headers.get('X-Translation-Status') === 'missing';
+
+        if (isMissing) {
+          // No translation file yet — use original as starting point for diff
+          setTranslationContent(text);
+          setSavedTranslation(text);
+        } else {
+          // Existing translation
+          setTranslationContent(text);
+          setSavedTranslation(text);
+        }
       } else {
         setTranslationContent('');
         setSavedTranslation('');
@@ -109,8 +118,10 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
 
       if (response.ok) {
         setSaveStatus('saved');
+        // Update savedTranslation so diff shows changes from this point
+        setSavedTranslation(translationContent);
         setFiles(prev => prev.map((f, i) =>
-          i === currentIndex ? { ...f, has_translation: true } : f
+          i === currentIndex ? { ...f, has_translation: true, translation_filename: `${f.name}.txt` } : f
         ));
         setTimeout(() => setSaveStatus('idle'), 2000);
       } else {

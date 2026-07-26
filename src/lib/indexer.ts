@@ -41,6 +41,7 @@ export function reindex(): ReindexResult {
   let added = 0;
   let updated = 0;
   const scannedNames = new Set<string>();
+  const warnings: string[] = [];
 
   if (fs.existsSync(originalsDir)) {
     const files = fs.readdirSync(originalsDir).filter(f => f.endsWith('_orig.txt'));
@@ -62,7 +63,7 @@ export function reindex(): ReindexResult {
         quest: metadata.quest,
         file_id: metadata.file_id,
         original_filename: file,
-        has_translation: hasTranslation ? 1 : 0,
+        has_translation: hasTranslation,
         translation_filename: hasTranslation ? `${metadata.name}.txt` : null,
         original_size: originalSize ?? 0,
         translation_size: translationSize ?? 0
@@ -76,11 +77,17 @@ export function reindex(): ReindexResult {
     }
   }
 
-  // Remove files that no longer exist in originals
+  // Warn about files that no longer exist in originals
+  // but keep them in the database so translations are not lost
   let removed = 0;
   for (const existingName of existingNames) {
     if (!scannedNames.has(existingName)) {
-      deleteFile(existingName);
+      const fileRecord = existingFiles.find(f => f.name === existingName);
+      if (fileRecord?.has_translation) {
+        warnings.push(`Original file "${existingName}" is missing, but its translation is preserved in the database.`);
+      }
+      // Don't delete — keep the record so translation isn't lost
+      // deleteFile(existingName);
       removed++;
     }
   }
@@ -89,6 +96,7 @@ export function reindex(): ReindexResult {
     added,
     updated,
     removed,
-    total: scannedNames.size
+    total: scannedNames.size,
+    warnings
   };
 }
