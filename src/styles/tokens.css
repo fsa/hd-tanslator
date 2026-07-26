@@ -23,36 +23,36 @@
    with inlineClassName: tok-name-{0..29}
    ======================================================================== */
 
-.tok-name-0  { color: #e74c3c; font-weight: bold; }
-.tok-name-1  { color: #3498db; font-weight: bold; }
-.tok-name-2  { color: #2ecc71; font-weight: bold; }
-.tok-name-3  { color: #f39c12; font-weight: bold; }
-.tok-name-4  { color: #9b59b6; font-weight: bold; }
-.tok-name-5  { color: #1abc9c; font-weight: bold; }
-.tok-name-6  { color: #e67e22; font-weight: bold; }
-.tok-name-7  { color: #2980b9; font-weight: bold; }
-.tok-name-8  { color: #27ae60; font-weight: bold; }
-.tok-name-9  { color: #8e44ad; font-weight: bold; }
-.tok-name-10 { color: #d35400; font-weight: bold; }
-.tok-name-11 { color: #16a085; font-weight: bold; }
-.tok-name-12 { color: #c0392b; font-weight: bold; }
-.tok-name-13 { color: #7f8c8d; font-weight: bold; }
-.tok-name-14 { color: #2c3e50; font-weight: bold; }
-.tok-name-15 { color: #e91e63; font-weight: bold; }
-.tok-name-16 { color: #00bcd4; font-weight: bold; }
-.tok-name-17 { color: #ff5722; font-weight: bold; }
-.tok-name-18 { color: #607d8b; font-weight: bold; }
-.tok-name-19 { color: #795548; font-weight: bold; }
-.tok-name-20 { color: #4caf50; font-weight: bold; }
-.tok-name-21 { color: #ff9800; font-weight: bold; }
-.tok-name-22 { color: #673ab7; font-weight: bold; }
-.tok-name-23 { color: #03a9f4; font-weight: bold; }
-.tok-name-24 { color: #8bc34a; font-weight: bold; }
-.tok-name-25 { color: #ffc107; font-weight: bold; }
-.tok-name-26 { color: #009688; font-weight: bold; }
-.tok-name-27 { color: #f44336; font-weight: bold; }
-.tok-name-28 { color: #2196f3; font-weight: bold; }
-.tok-name-29 { color: #689f38; font-weight: bold; }
+.tok-name-0  { color: #e74c3c !important; font-weight: bold; }
+.tok-name-1  { color: #3498db !important; font-weight: bold; }
+.tok-name-2  { color: #2ecc71 !important; font-weight: bold; }
+.tok-name-3  { color: #f39c12 !important; font-weight: bold; }
+.tok-name-4  { color: #9b59b6 !important; font-weight: bold; }
+.tok-name-5  { color: #1abc9c !important; font-weight: bold; }
+.tok-name-6  { color: #e67e22 !important; font-weight: bold; }
+.tok-name-7  { color: #2980b9 !important; font-weight: bold; }
+.tok-name-8  { color: #27ae60 !important; font-weight: bold; }
+.tok-name-9  { color: #8e44ad !important; font-weight: bold; }
+.tok-name-10 { color: #d35400 !important; font-weight: bold; }
+.tok-name-11 { color: #16a085 !important; font-weight: bold; }
+.tok-name-12 { color: #c0392b !important; font-weight: bold; }
+.tok-name-13 { color: #7f8c8d !important; font-weight: bold; }
+.tok-name-14 { color: #2c3e50 !important; font-weight: bold; }
+.tok-name-15 { color: #e91e63 !important; font-weight: bold; }
+.tok-name-16 { color: #00bcd4 !important; font-weight: bold; }
+.tok-name-17 { color: #ff5722 !important; font-weight: bold; }
+.tok-name-18 { color: #607d8b !important; font-weight: bold; }
+.tok-name-19 { color: #795548 !important; font-weight: bold; }
+.tok-name-20 { color: #4caf50 !important; font-weight: bold; }
+.tok-name-21 { color: #ff9800 !important; font-weight: bold; }
+.tok-name-22 { color: #673ab7 !important; font-weight: bold; }
+.tok-name-23 { color: #03a9f4 !important; font-weight: bold; }
+.tok-name-24 { color: #8bc34a !important; font-weight: bold; }
+.tok-name-25 { color: #ffc107 !important; font-weight: bold; }
+.tok-name-26 { color: #009688 !important; font-weight: bold; }
+.tok-name-27 { color: #f44336 !important; font-weight: bold; }
+.tok-name-28 { color: #2196f3 !important; font-weight: bold; }
+.tok-name-29 { color: #689f38 !important; font-weight: bold; }
 
 /* ========================================================================
    Monaco whitespace markers
