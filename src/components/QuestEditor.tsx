@@ -230,20 +230,6 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           )}
         </div>
         <div className="d-flex align-items-center gap-2">
-          <Button
-            variant={approved ? 'success' : 'outline-success'}
-            size="sm"
-            onClick={handleToggleApproved}
-            disabled={approving}
-          >
-            {approving ? (
-              <Spinner animation="border" size="sm" />
-            ) : approved ? (
-              'Approved'
-            ) : (
-              'Approve'
-            )}
-          </Button>
           <ButtonGroup size="sm">
             <Button
               variant="primary"
@@ -294,9 +280,24 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
         </div>
         <div className="d-flex flex-column" style={{ flex: '1 1 55%', minWidth: 0, overflow: 'hidden' }}>
           <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
-            <div>
+            <div className="d-flex align-items-center gap-2">
               <strong>Translation</strong>
-              <span className="text-muted ms-2" style={{ fontSize: '0.85em' }}>
+              <Button
+                variant={approved ? 'success' : 'outline-success'}
+                size="sm"
+                onClick={handleToggleApproved}
+                disabled={approving}
+                style={{ fontSize: '0.75em', padding: '0.1em 0.5em' }}
+              >
+                {approving ? (
+                  <Spinner animation="border" size="sm" />
+                ) : approved ? (
+                  'Approved'
+                ) : (
+                  'Approve'
+                )}
+              </Button>
+              <span className="text-muted" style={{ fontSize: '0.85em' }}>
                 {currentFile?.translation_filename || '(not created)'}
               </span>
             </div>
