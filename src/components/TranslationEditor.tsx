@@ -1,43 +1,17 @@
 import { useRef, useEffect } from 'react';
-import Editor from '@monaco-editor/react';
+import { DiffEditor } from '@monaco-editor/react';
+import { checkSpelling, hasSpellCheck } from '../lib/spellcheck';
 
-interface CodeEditorProps {
+interface TranslationEditorProps {
   value: string;
+  original: string;
   onChange: (value: string) => void;
-  placeholder?: string;
   className?: string;
   style?: React.CSSProperties;
-  readOnly?: boolean;
-}
-
-const PALETTE = [
-  '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
-  '#1abc9c', '#e67e22', '#2980b9', '#27ae60', '#8e44ad',
-  '#d35400', '#16a085', '#c0392b', '#7f8c8d', '#2c3e50',
-  '#e91e63', '#00bcd4', '#ff5722', '#607d8b', '#795548',
-  '#4caf50', '#ff9800', '#673ab7', '#03a9f4', '#8bc34a',
-  '#ffc107', '#009688', '#f44336', '#2196f3', '#689f38',
-];
-
-function aggressiveHash(str: string): number {
-  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
-    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
-    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  }
-  return (4294967296 + (h2 >>> 0)) % PALETTE.length;
-}
-
-function hashColor(name: string): string {
-  return PALETTE[aggressiveHash(name)];
 }
 
 function defineGameScriptLanguage(monaco: any) {
+  // Check if already registered
   if (monaco.languages.getLanguages().some((l: any) => l.id === 'gamescript')) {
     return;
   }
@@ -126,20 +100,48 @@ function computeWhitespaceMarkers(text: string, monaco: any): any[] {
   return markers;
 }
 
-export default function CodeEditor({ value, onChange, placeholder, className, style, readOnly }: CodeEditorProps) {
+// Spell check using nspell dictionary
+async function spellCheckMarkers(model: any, monaco: any, text: string): Promise<any[]> {
+  const available = await hasSpellCheck();
+  if (!available) return [];
+  const results = await checkSpelling(text);
+  return results.map(r => ({
+    severity: monaco.MarkerSeverity.Warning,
+    message: `Possible typo: "${r.word}"`,
+    startLineNumber: r.line,
+    startColumn: r.column,
+    endLineNumber: r.line,
+    endColumn: r.column + r.length,
+    source: 'spellcheck',
+  }));
+}
+
+export default function TranslationEditor({ value, original, onChange, className, style }: TranslationEditorProps) {
   const editorRef = useRef<any>(null);
 
   const handleEditorMount = (editor: any, monaco: any) => {
-    editorRef.current = editor;
     defineGameScriptLanguage(monaco);
     monaco.editor.setTheme('gamescript-theme');
 
-    // Set initial markers
-    const model = editor.getModel();
+    // Store reference to the modified editor (right side of diff)
+    const modifiedEditor = editor.getModifiedEditor();
+    editorRef.current = modifiedEditor;
+
+    // Trigger initial markers on the modified editor
+    const model = modifiedEditor.getModel();
     if (model) {
-      const markers = computeWhitespaceMarkers(value, monaco);
-      monaco.editor.setModelMarkers(model, 'whitespace', markers);
+      const whitespaceMarkers = computeWhitespaceMarkers(modifiedEditor.getValue(), monaco);
+      spellCheckMarkers(model, monaco, modifiedEditor.getValue()).then(spellMarkers => {
+        monaco.editor.setModelMarkers(model, 'whitespace', whitespaceMarkers);
+        monaco.editor.setModelMarkers(model, 'spellcheck', spellMarkers);
+      });
     }
+
+    // Listen for content changes to propagate to parent
+    modifiedEditor.onDidChangeModelContent(() => {
+      const newValue = modifiedEditor.getValue();
+      onChange(newValue);
+    });
   };
 
   // Update markers when value changes
@@ -152,37 +154,60 @@ export default function CodeEditor({ value, onChange, placeholder, className, st
     const monaco = (window as any).monaco;
     if (!monaco) return;
 
-    const markers = computeWhitespaceMarkers(value, monaco);
-    monaco.editor.setModelMarkers(model, 'whitespace', markers);
+    const whitespaceMarkers = computeWhitespaceMarkers(value, monaco);
+    monaco.editor.setModelMarkers(model, 'whitespace', whitespaceMarkers);
+
+    spellCheckMarkers(model, monaco, value).then(spellMarkers => {
+      monaco.editor.setModelMarkers(model, 'spellcheck', spellMarkers);
+    });
   }, [value]);
 
   return (
     <div className={className} style={{ ...style }}>
-      <Editor
-        height="100%"
+      <DiffEditor
+        original={original}
+        modified={value}
         language="gamescript"
-        value={value}
-        onChange={(val) => onChange(val || '')}
         onMount={handleEditorMount}
         options={{
-          readOnly: readOnly || false,
           wordWrap: 'on',
-          lineNumbers: 'on',
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
           fontSize: 14,
           fontFamily: 'monospace',
           lineHeight: 21,
           padding: { top: 10 },
           automaticLayout: true,
+          scrollBeyondLastLine: false,
           unicodeHighlight: { nonBasicASCII: false, ambiguousCharacters: false },
+          renderSideBySide: false,
+          readOnly: false,
+          originalEditable: false,
+          enableSplitViewResizing: false,
+          diffAlgorithm: 'advanced',
+          renderMarginRevertIcon: false,
+          hideUnchangedRegions: {
+            enabled: false,
+          },
+          minimap: { enabled: false },
           scrollbar: {
             vertical: 'auto',
             horizontal: 'auto',
           },
-          lineNumbersMinChars: 2,
-        }}
-        theme="gamescript-theme"
+          // VS Code-style diff colours
+          renderOverviewRuler: true,
+          overviewRulerBorder: true,
+          originalEditor: {
+            lineNumbers: 'off',
+            lineNumbersMinChars: 1,
+            glyphMargin: false,
+            folding: false,
+          },
+          modifiedEditor: {
+            lineNumbers: 'on',
+            lineNumbersMinChars: 2,
+            glyphMargin: false,
+            folding: false,
+          },
+        } as any}
       />
     </div>
   );

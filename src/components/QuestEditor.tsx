@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button, ButtonGroup, Badge, Spinner } from 'react-bootstrap';
 import CodeEditor from './CodeEditor';
+import TranslationEditor from './TranslationEditor';
 
 interface QuestFile {
   id: number;
@@ -204,7 +205,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
         </div>
       )}
       <div className="d-flex flex-grow-1" style={{ minHeight: 0 }}>
-        <div className="d-flex flex-column border-end" style={{ flex: '1 1 50%', minWidth: 0 }}>
+        <div className="d-flex flex-column border-end" style={{ flex: '1 1 45%', minWidth: 0 }}>
           <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
             <div>
               <strong>Original</strong>
@@ -230,7 +231,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
             />
           )}
         </div>
-        <div className="d-flex flex-column" style={{ flex: '1 1 50%', minWidth: 0, overflow: 'hidden' }}>
+        <div className="d-flex flex-column" style={{ flex: '1 1 55%', minWidth: 0, overflow: 'hidden' }}>
           <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
             <div>
               <strong>Translation</strong>
@@ -251,11 +252,10 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               <Spinner animation="border" size="sm" />
             </div>
           ) : (
-            <CodeEditor
+            <TranslationEditor
               value={translationContent}
               original={savedTranslation}
               onChange={setTranslationContent}
-              placeholder="Type translation here..."
               className="flex-grow-1"
               style={{ minHeight: '300px' }}
             />

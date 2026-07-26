@@ -6,13 +6,55 @@ export const prerender = false;
 
 const DICT_DIR = '/usr/share/hunspell';
 
+// Server-side cache for converted dictionaries
+const dictCache = new Map<string, Uint8Array>();
+
+function detectEncoding(affPath: string): string {
+  const content = fs.readFileSync(affPath, 'utf-8');
+  const match = content.match(/^SET\s+(\S+)/im);
+  return match ? match[1].toLowerCase() : 'utf-8';
+}
+
+function convertToUtf8(filePath: string, encoding: string): Uint8Array {
+  const raw = fs.readFileSync(filePath);
+  if (encoding === 'utf-8' || encoding === 'ascii') {
+    return new Uint8Array(raw);
+  }
+  const decoder = new TextDecoder(encoding);
+  const text = decoder.decode(raw);
+  return new TextEncoder().encode(text);
+}
+
+function loadDictFile(filename: string): Uint8Array {
+  const cacheKey = filename;
+  if (dictCache.has(cacheKey)) {
+    return dictCache.get(cacheKey)!;
+  }
+
+  const filePath = path.join(DICT_DIR, filename);
+  if (!path.resolve(filePath).startsWith(path.resolve(DICT_DIR))) {
+    throw new Error('Invalid path');
+  }
+  if (!fs.existsSync(filePath)) {
+    throw new Error('File not found: ' + filePath);
+  }
+
+  // Determine encoding from the .aff file
+  const affFilename = filename.replace(/\.dic$/, '.aff');
+  const affPath = path.join(DICT_DIR, affFilename);
+  const encoding = fs.existsSync(affPath) ? detectEncoding(affPath) : 'utf-8';
+
+  const data = convertToUtf8(filePath, encoding);
+
+  dictCache.set(cacheKey, data);
+  return data;
+}
+
 export const GET: APIRoute = async ({ url }) => {
   try {
     const action = url.searchParams.get('action') || 'get';
-    const lang = url.searchParams.get('lang');
     const file = url.searchParams.get('file');
 
-    // List available dictionaries
     if (action === 'list') {
       if (!fs.existsSync(DICT_DIR)) {
         return new Response(JSON.stringify({ dictionaries: [] }), {
@@ -40,7 +82,6 @@ export const GET: APIRoute = async ({ url }) => {
       });
     }
 
-    // Get specific dictionary file
     if (!file) {
       return new Response(JSON.stringify({ error: 'file parameter required' }), {
         status: 400,
@@ -48,37 +89,19 @@ export const GET: APIRoute = async ({ url }) => {
       });
     }
 
-    // File is expected to be like "ru_RU.aff" or "en_US.dic"
-    const filePath = path.join(DICT_DIR, file);
+    const data = loadDictFile(file);
+    const contentType = 'text/plain; charset=utf-8';
 
-    if (!path.resolve(filePath).startsWith(path.resolve(DICT_DIR))) {
-      return new Response(JSON.stringify({ error: 'Invalid path' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    if (!fs.existsSync(filePath)) {
-      return new Response(JSON.stringify({ error: 'Dictionary not found: ' + filePath }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
-    const content = fs.readFileSync(filePath);
-    const ext = path.extname(file).toLowerCase();
-    const contentType = ext === '.aff' ? 'text/plain' : 'application/octet-stream';
-
-    return new Response(content, {
+    return new Response(data, {
       status: 200,
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=86400'
       }
     });
-  } catch (error) {
-    console.error('Dictionary error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to load dictionary' }), {
+  } catch (error: any) {
+    console.error('Dictionary error:', error.message);
+    return new Response(JSON.stringify({ error: error.message || 'Failed to load dictionary' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
