@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
 
 interface CodeEditorProps {
@@ -9,6 +9,10 @@ interface CodeEditorProps {
   style?: React.CSSProperties;
   readOnly?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Per-character hash-based colour palette
+// ---------------------------------------------------------------------------
 
 const PALETTE = [
   '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
@@ -33,9 +37,27 @@ function aggressiveHash(str: string): number {
   return (4294967296 + (h2 >>> 0)) % PALETTE.length;
 }
 
-function hashColor(name: string): string {
-  return PALETTE[aggressiveHash(name)];
+function hashColorIndex(name: string): number {
+  return aggressiveHash(name);
 }
+
+// ---------------------------------------------------------------------------
+// Emotion → emoji mapping
+// ---------------------------------------------------------------------------
+
+const EMOTION_EMOJI: Record<string, string> = {
+  smile: '😊', laugh: '😄', angry: '😠', sad: '😢', cry: '😭',
+  love: '😍', kiss: '😘', blush: '😳', wink: '😉', surprised: '😲',
+  scared: '😨', thinking: '🤔', confused: '😕', tired: '😴',
+  excited: '🤩', smirk: '😏', serious: '😐', nervous: '😰',
+  happy: '😃', mad: '😤', hurt: '😖', annoyed: '😒', drunk: '🥴',
+  aroused: '😏', shy: '☺️', disgusted: '🤢',
+  neutral: '😐', grin: '😁', gasp: '😮', frown: '☹️', pout: '😤',
+};
+
+// ---------------------------------------------------------------------------
+// Gamescript language definition (Monarch tokenizer)
+// ---------------------------------------------------------------------------
 
 function defineGameScriptLanguage(monaco: any) {
   if (monaco.languages.getLanguages().some((l: any) => l.id === 'gamescript')) {
@@ -44,12 +66,27 @@ function defineGameScriptLanguage(monaco: any) {
 
   monaco.languages.register({ id: 'gamescript' });
 
+  // Split bracket/curly labels into sub-tokens so each part gets its own
+  // token type and can be coloured independently via the theme.
   monaco.languages.setMonarchTokensProvider('gamescript', {
     tokenizer: {
       root: [
-        [/\-{4,}/, 'separator'],
-        [/\[[A-Za-z0-9_]*\]/, 'bracket-label'],
-        [/\{[^}]*\}/, 'curly-tag'],
+        [/----/, 'separator'],
+
+        // [NAME] or [NAME_emotion]
+        [/\[/, 'bracket-delim'],
+        [/([A-Za-z0-9]+)(_)([A-Za-z0-9]+)(\])/,
+          ['bracket-name', 'bracket-underscore', 'bracket-emotion', 'bracket-delim']],
+        [/([A-Za-z0-9]+)(\])/,
+          ['bracket-name', 'bracket-delim']],
+
+        // {NAME} or {NAME_suffix}
+        [/\{/, 'curly-delim'],
+        [/([A-Za-z0-9]+)(_)([A-Za-z0-9]+)(\})/,
+          ['curly-name', 'curly-underscore', 'curly-suffix', 'curly-delim']],
+        [/([A-Za-z0-9]+)(\})/,
+          ['curly-name', 'curly-delim']],
+
         [/<[A-Za-z\/][A-Za-z0-9_ ]*[^>]*>/, 'angle-tag'],
         [/\u2014/, 'invalid-char'],
         [/  +/, 'double-space'],
@@ -66,13 +103,25 @@ function defineGameScriptLanguage(monaco: any) {
     ],
   });
 
+  // Theme — bracket-name and curly-name have NO foreground set so that
+  // editor decorations (deltaDecorations with inlineClassName) can
+  // override the colour. Only the delimiters ([, ], {, }) keep their
+  // fixed colours via bracket-delim / curly-delim.
   monaco.editor.defineTheme('gamescript-theme', {
     base: 'vs',
     inherit: true,
     rules: [
       { token: 'separator', foreground: '6c757d', fontStyle: 'bold' },
-      { token: 'bracket-label', foreground: '0d6efd', fontStyle: 'bold' },
-      { token: 'curly-tag', foreground: 'fd7e14', fontStyle: 'bold' },
+      { token: 'bracket-delim', foreground: '0d6efd', fontStyle: 'bold' },
+      // bracket-name intentionally has no foreground — decorations supply it
+      { token: 'bracket-name', fontStyle: 'bold' },
+      { token: 'bracket-underscore', foreground: '6c757d' },
+      { token: 'bracket-emotion', foreground: '6c757d' },
+      { token: 'curly-delim', foreground: 'fd7e14', fontStyle: 'bold' },
+      // curly-name intentionally has no foreground — decorations supply it
+      { token: 'curly-name', fontStyle: 'bold' },
+      { token: 'curly-underscore', foreground: '6c757d' },
+      { token: 'curly-suffix', foreground: '6c757d' },
       { token: 'angle-tag', foreground: 'dc3545', fontStyle: 'bold' },
       { token: 'double-space', background: 'dc3545', fontStyle: 'bold' },
       { token: 'invalid-char', background: 'dc3545', fontStyle: 'bold' },
@@ -81,7 +130,90 @@ function defineGameScriptLanguage(monaco: any) {
   });
 }
 
-/** Find double/multi-spaces and trailing spaces, return Monaco markers */
+// ---------------------------------------------------------------------------
+// Editor decorations — apply per-character hash colours to [NAME] and {NAME}
+//
+// We use Monaco's deltaDecorations API with inlineClassName.
+// CSS classes .tok-name-0 through .tok-name-29 are defined in tokens.css
+// and map to the 30 palette colours.
+// ---------------------------------------------------------------------------
+
+interface NameSpan {
+  line: number;
+  startCol: number;
+  endCol: number;
+  colorIndex: number;
+}
+
+function findNameSpans(text: string): NameSpan[] {
+  const spans: NameSpan[] = [];
+  const lines = text.split('\n');
+
+  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+    const line = lines[lineIdx];
+    const lineNumber = lineIdx + 1;
+
+    // Match [NAME] and [NAME_emotion]
+    const bracketRe = /\[([A-Za-z0-9]+)(?:_([A-Za-z0-9]+))?\]/g;
+    let m: RegExpExecArray | null;
+    while ((m = bracketRe.exec(line)) !== null) {
+      const name = m[1];
+      const colorIndex = hashColorIndex(name);
+      // Name starts after '[' (1 char), Monaco columns are 1-based
+      spans.push({
+        line: lineNumber,
+        startCol: m.index + 2,
+        endCol: m.index + 2 + name.length,
+        colorIndex,
+      });
+    }
+
+    // Match {NAME} and {NAME_suffix}
+    const curlyRe = /\{([A-Za-z0-9]+)(?:_([A-Za-z0-9]+))?\}/g;
+    while ((m = curlyRe.exec(line)) !== null) {
+      const name = m[1];
+      const colorIndex = hashColorIndex(name);
+      spans.push({
+        line: lineNumber,
+        startCol: m.index + 2,
+        endCol: m.index + 2 + name.length,
+        colorIndex,
+      });
+    }
+  }
+
+  return spans;
+}
+
+function updateNameDecorations(editor: any, text: string) {
+  if (!editor) return;
+
+  // Retrieve previous decoration IDs so we can replace them
+  const oldIds: string[] = (editor as any).__nameDecorationIds || [];
+
+  const spans = findNameSpans(text);
+  const decorations = spans.map(span => ({
+    range: {
+      startLineNumber: span.line,
+      startColumn: span.startCol,
+      endLineNumber: span.line,
+      endColumn: span.endCol,
+    },
+    options: {
+      inlineClassName: `tok-name-${span.colorIndex}`,
+      inlineClassNameAffectsLetterSpacing: true,
+      stickiness: 1, // NeverGrowsWhenTypingAtEdges
+    },
+  }));
+
+  const newIds = editor.deltaDecorations(oldIds, decorations);
+  (editor as any).__nameDecorationIds = newIds;
+}
+
+// ---------------------------------------------------------------------------
+// Whitespace markers
+// ---------------------------------------------------------------------------
+
 function computeWhitespaceMarkers(text: string, monaco: any): any[] {
   const markers: any[] = [];
   const lines = text.split('\n');
@@ -108,7 +240,6 @@ function computeWhitespaceMarkers(text: string, monaco: any): any[] {
     const doubleRe = /  +/g;
     let m: RegExpExecArray | null;
     while ((m = doubleRe.exec(line)) !== null) {
-      // Skip if at start of line (indentation) or if this is trailing whitespace
       if (m.index === 0) continue;
       if (m.index + m[0].length >= line.length) continue;
       markers.push({
@@ -126,23 +257,30 @@ function computeWhitespaceMarkers(text: string, monaco: any): any[] {
   return markers;
 }
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export default function CodeEditor({ value, onChange, placeholder, className, style, readOnly }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
 
-  const handleEditorMount = (editor: any, monaco: any) => {
+  const handleEditorMount = useCallback((editor: any, monaco: any) => {
     editorRef.current = editor;
     defineGameScriptLanguage(monaco);
     monaco.editor.setTheme('gamescript-theme');
 
-    // Set initial markers
+    // Apply per-character name colours via decorations
+    updateNameDecorations(editor, value);
+
+    // Set initial whitespace markers
     const model = editor.getModel();
     if (model) {
       const markers = computeWhitespaceMarkers(value, monaco);
       monaco.editor.setModelMarkers(model, 'whitespace', markers);
     }
-  };
+  }, []);
 
-  // Update markers when value changes
+  // Update decorations and markers when value changes
   useEffect(() => {
     if (!editorRef.current) return;
     const editor = editorRef.current;
@@ -151,6 +289,8 @@ export default function CodeEditor({ value, onChange, placeholder, className, st
 
     const monaco = (window as any).monaco;
     if (!monaco) return;
+
+    updateNameDecorations(editor, value);
 
     const markers = computeWhitespaceMarkers(value, monaco);
     monaco.editor.setModelMarkers(model, 'whitespace', markers);
