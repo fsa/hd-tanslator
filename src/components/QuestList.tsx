@@ -8,6 +8,14 @@ interface QuestItem {
   quest: number;
   file_count: number;
   translated_count: number;
+  approved_count: number;
+}
+
+function getQuestStatusClass(approvedCount: number, fileCount: number): string {
+  if (fileCount === 0) return '';
+  if (approvedCount === fileCount) return 'list-group-item-success'; // green — all approved
+  if (approvedCount === 0) return 'list-group-item-danger'; // red/pink — none approved
+  return 'list-group-item-warning'; // yellow — partially approved
 }
 
 export default function QuestList() {
@@ -15,6 +23,7 @@ export default function QuestList() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
+  const [hideApproved, setHideApproved] = useState(false);
 
   useEffect(() => {
     fetchQuests();
@@ -48,9 +57,15 @@ export default function QuestList() {
   const effectiveCharacter = activeCharacter || characters[0] || 'ALL';
 
   const filteredQuests = useMemo(() => {
-    if (effectiveCharacter === 'ALL') return quests;
-    return quests.filter(q => q.character === effectiveCharacter);
-  }, [quests, effectiveCharacter]);
+    let result = quests;
+    if (effectiveCharacter !== 'ALL') {
+      result = result.filter(q => q.character === effectiveCharacter);
+    }
+    if (hideApproved) {
+      result = result.filter(q => q.approved_count < q.file_count);
+    }
+    return result;
+  }, [quests, effectiveCharacter, hideApproved]);
 
   const handleOpen = (questName: string) => {
     window.location.href = `/editor/${questName}`;
@@ -62,13 +77,23 @@ export default function QuestList() {
         <a href="/" className="btn btn-outline-secondary btn-sm me-3">&larr; Menu</a>
         <h3 className="mb-0">Quests</h3>
       </div>
-      <Form.Control
-        type="text"
-        placeholder="Search quests..."
-        value={searchQuery}
-        onChange={handleSearch}
-        className="mb-3"
-      />
+      <div className="d-flex gap-2 mb-3">
+        <Form.Control
+          type="text"
+          placeholder="Search quests..."
+          value={searchQuery}
+          onChange={handleSearch}
+        />
+        <Form.Check
+          type="switch"
+          id="hide-approved-switch"
+          label="Hide approved"
+          checked={hideApproved}
+          onChange={(e) => setHideApproved(e.target.checked)}
+          className="d-flex align-items-center gap-2 text-nowrap"
+          style={{ minWidth: 'fit-content' }}
+        />
+      </div>
       {loading ? (
         <div className="text-center py-5">
           <Spinner animation="border" />
@@ -97,30 +122,35 @@ export default function QuestList() {
             })}
           </Nav>
           <div className="list-group">
-            {filteredQuests.map((q) => (
-              <button
-                key={q.name}
-                type="button"
-                className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-                onClick={() => handleOpen(q.name)}
-              >
-                <span>
-                  <strong>{q.character}</strong>
-                  <span className="text-muted mx-1">.</span>
-                  {q.section}
-                  <span className="text-muted mx-1">.</span>
-                  {q.quest}
-                </span>
-                <span>
-                  <Badge bg="secondary" className="me-2">
-                    {q.translated_count}/{q.file_count}
-                  </Badge>
-                  <Badge bg={q.translated_count === q.file_count ? 'success' : 'warning'}>
-                    {q.translated_count === q.file_count ? 'done' : 'wip'}
-                  </Badge>
-                </span>
-              </button>
-            ))}
+            {filteredQuests.map((q) => {
+              const statusClass = getQuestStatusClass(q.approved_count, q.file_count);
+              const allApproved = q.approved_count === q.file_count && q.file_count > 0;
+              const noneApproved = q.approved_count === 0;
+              return (
+                <button
+                  key={q.name}
+                  type="button"
+                  className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${statusClass}`}
+                  onClick={() => handleOpen(q.name)}
+                >
+                  <span>
+                    <strong>{q.character}</strong>
+                    <span className="text-muted mx-1">.</span>
+                    {q.section}
+                    <span className="text-muted mx-1">.</span>
+                    {q.quest}
+                  </span>
+                  <span className="d-flex align-items-center gap-2">
+                    <Badge bg="secondary" className="me-2">
+                      {q.translated_count}/{q.file_count}
+                    </Badge>
+                    <Badge bg={allApproved ? 'success' : noneApproved ? 'danger' : 'warning'}>
+                      {allApproved ? 'done' : noneApproved ? 'none' : `${q.approved_count}/${q.file_count}`}
+                    </Badge>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </>
       )}
