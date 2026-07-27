@@ -134,11 +134,6 @@ export default function QuestList() {
         <div className="text-muted text-center py-5">
           No quests found. Try running reindex first.
         </div>
-      ) : filteredQuests.length === 0 && hiddenCount > 0 ? (
-        <div className="text-muted text-center py-5">
-          <p className="mb-1 fs-5">All {hiddenCount} quest{hiddenCount !== 1 ? 's' : ''} are hidden (approved).</p>
-          <p className="mb-0 small">Disable "Hide approved" to see them.</p>
-        </div>
       ) : (
         <>
           <Nav variant="tabs" className="mb-3">
@@ -158,37 +153,44 @@ export default function QuestList() {
               );
             })}
           </Nav>
-          <div className="list-group">
-            {filteredQuests.map((q) => {
-              const statusClass = getQuestStatusClass(q.approved_count, q.file_count);
-              const allApproved = q.approved_count === q.file_count && q.file_count > 0;
-              const noneApproved = q.approved_count === 0;
-              return (
-                <button
-                  key={q.name}
-                  type="button"
-                  className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${statusClass}`}
-                  onClick={() => handleOpen(q.name)}
-                >
-                  <span>
-                    <strong>{q.character}</strong>
-                    <span className="text-muted mx-1">.</span>
-                    {q.section}
-                    <span className="text-muted mx-1">.</span>
-                    {q.quest}
-                  </span>
-                  <span className="d-flex align-items-center gap-2">
-                    <Badge bg="secondary" className="me-2">
-                      {q.translated_count}/{q.file_count}
-                    </Badge>
-                    <Badge bg={allApproved ? 'success' : noneApproved ? 'danger' : 'warning'}>
-                      {allApproved ? 'done' : noneApproved ? 'none' : `${q.approved_count}/${q.file_count}`}
-                    </Badge>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          {filteredQuests.length === 0 && hiddenCount > 0 ? (
+            <div className="text-muted text-center py-5">
+              <p className="mb-1 fs-5">All {hiddenCount} quest{hiddenCount !== 1 ? 's' : ''} are hidden (approved).</p>
+              <p className="mb-0 small">Disable "Hide approved" to see them.</p>
+            </div>
+          ) : (
+            <div className="list-group">
+              {filteredQuests.map((q) => {
+                const statusClass = getQuestStatusClass(q.approved_count, q.file_count);
+                const allApproved = q.approved_count === q.file_count && q.file_count > 0;
+                const noneApproved = q.approved_count === 0;
+                return (
+                  <button
+                    key={q.name}
+                    type="button"
+                    className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${statusClass}`}
+                    onClick={() => handleOpen(q.name)}
+                  >
+                    <span>
+                      <strong>{q.character}</strong>
+                      <span className="text-muted mx-1">.</span>
+                      {q.section}
+                      <span className="text-muted mx-1">.</span>
+                      {q.quest}
+                    </span>
+                    <span className="d-flex align-items-center gap-2">
+                      <Badge bg="secondary" className="me-2">
+                        {q.translated_count}/{q.file_count}
+                      </Badge>
+                      <Badge bg={allApproved ? 'success' : noneApproved ? 'danger' : 'warning'}>
+                        {allApproved ? 'done' : noneApproved ? 'none' : `${q.approved_count}/${q.file_count}`}
+                      </Badge>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
     </Container>
