@@ -25,7 +25,10 @@ export default function QuestList() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCharacter, setActiveCharacter] = useState<string | null>(() => {
-    return sessionStorage.getItem(STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(STORAGE_KEY);
+    }
+    return null;
   });
   const [hideApproved, setHideApproved] = useState(false);
 
