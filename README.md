@@ -30,6 +30,14 @@ npm install
 npm run dev
 ```
 
+## Запуск без режима отладки
+
+```sh
+npm install
+npm run build
+npm run preview
+```
+
 Dev-сервер: <http://localhost:3000>
 
 ## Настройки
@@ -44,6 +52,8 @@ Dev-сервер: <http://localhost:3000>
 | `TRANSLATIONS_DIR` | Путь к папке с переводами (`*.txt`) | Да |
 | `OPENROUTER_API_KEY` | Ключ API OpenRouter (для будущего использования) | Нет |
 | `DB_PATH` | Путь к файлу SQLite БД (по умолч. `./data/translator.db`) | Нет |
+
+Разрешены как абсолютные пути, так и относительные.
 
 ### Файлы .env
 
