@@ -90,6 +90,15 @@ export default function QuestList() {
     return result;
   }, [quests, effectiveCharacter, hideApproved]);
 
+  const hiddenCount = useMemo(() => {
+    if (!hideApproved) return 0;
+    let visible = quests;
+    if (effectiveCharacter !== 'ALL') {
+      visible = visible.filter(q => q.character === effectiveCharacter);
+    }
+    return visible.length - filteredQuests.length;
+  }, [quests, effectiveCharacter, hideApproved, filteredQuests.length]);
+
   const handleOpen = (questName: string) => {
     window.location.href = `/editor/${questName}`;
   };
@@ -124,6 +133,11 @@ export default function QuestList() {
       ) : quests.length === 0 ? (
         <div className="text-muted text-center py-5">
           No quests found. Try running reindex first.
+        </div>
+      ) : filteredQuests.length === 0 && hiddenCount > 0 ? (
+        <div className="text-muted text-center py-5">
+          <p className="mb-1 fs-5">All {hiddenCount} quest{hiddenCount !== 1 ? 's' : ''} are hidden (approved).</p>
+          <p className="mb-0 small">Disable "Hide approved" to see them.</p>
         </div>
       ) : (
         <>
