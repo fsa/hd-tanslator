@@ -18,7 +18,8 @@ function getQuestStatusClass(approvedCount: number, fileCount: number): string {
   return 'list-group-item-warning'; // yellow — partially approved
 }
 
-const STORAGE_KEY = 'quests-active-character';
+const STORAGE_KEY_CHAR = 'quests-active-character';
+const STORAGE_KEY_HIDE = 'quests-hide-approved';
 
 export default function QuestList() {
   const [quests, setQuests] = useState<QuestItem[]>([]);
@@ -26,11 +27,16 @@ export default function QuestList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCharacter, setActiveCharacter] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return sessionStorage.getItem(STORAGE_KEY);
+      return sessionStorage.getItem(STORAGE_KEY_CHAR);
     }
     return null;
   });
-  const [hideApproved, setHideApproved] = useState(false);
+  const [hideApproved, setHideApproved] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(STORAGE_KEY_HIDE) === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     fetchQuests();
@@ -52,7 +58,12 @@ export default function QuestList() {
 
   const handleCharacterChange = (char: string) => {
     setActiveCharacter(char);
-    sessionStorage.setItem(STORAGE_KEY, char);
+    sessionStorage.setItem(STORAGE_KEY_CHAR, char);
+  };
+
+  const handleHideApprovedChange = (checked: boolean) => {
+    setHideApproved(checked);
+    sessionStorage.setItem(STORAGE_KEY_HIDE, String(checked));
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,7 +112,7 @@ export default function QuestList() {
           id="hide-approved-switch"
           label="Hide approved"
           checked={hideApproved}
-          onChange={(e) => setHideApproved(e.target.checked)}
+          onChange={(e) => handleHideApprovedChange(e.target.checked)}
           className="d-flex align-items-center gap-2 text-nowrap"
           style={{ minWidth: 'fit-content' }}
         />
