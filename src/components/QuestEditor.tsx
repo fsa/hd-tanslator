@@ -205,7 +205,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
 
   const handleRefresh = () => {
     if (files.length === 0) return;
-    guardNav(() => loadContent(files[currentIndex].name));
+    loadContent(files[currentIndex].name);
   };
 
   const handleCopyOriginal = async () => {
