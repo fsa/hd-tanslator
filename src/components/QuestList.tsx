@@ -18,11 +18,15 @@ function getQuestStatusClass(approvedCount: number, fileCount: number): string {
   return 'list-group-item-warning'; // yellow — partially approved
 }
 
+const STORAGE_KEY = 'quests-active-character';
+
 export default function QuestList() {
   const [quests, setQuests] = useState<QuestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCharacter, setActiveCharacter] = useState<string | null>(null);
+  const [activeCharacter, setActiveCharacter] = useState<string | null>(() => {
+    return sessionStorage.getItem(STORAGE_KEY);
+  });
   const [hideApproved, setHideApproved] = useState(false);
 
   useEffect(() => {
@@ -41,6 +45,11 @@ export default function QuestList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCharacterChange = (char: string) => {
+    setActiveCharacter(char);
+    sessionStorage.setItem(STORAGE_KEY, char);
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,7 +122,7 @@ export default function QuestList() {
                 <Nav.Item key={char}>
                   <Nav.Link
                     active={effectiveCharacter === char}
-                    onClick={() => setActiveCharacter(char)}
+                    onClick={() => handleCharacterChange(char)}
                   >
                     {char} <Badge bg="secondary" className="ms-1">{count}</Badge>
                   </Nav.Link>
