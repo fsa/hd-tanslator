@@ -136,7 +136,11 @@ export function upsertFile(record: Omit<FileRecord, 'id' | 'indexed_at' | 'updat
       translation_size = @translation_size,
       updated_at = CURRENT_TIMESTAMP
   `);
-  stmt.run(record);
+  // Convert boolean to number for SQLite compatibility
+  stmt.run({
+    ...record,
+    has_translation: record.has_translation ? 1 : 0,
+  });
 }
 
 export function updateTranslationStatus(name: string, hasTranslation: boolean, translationFilename: string | null, translationSize: number | null): void {
@@ -145,7 +149,7 @@ export function updateTranslationStatus(name: string, hasTranslation: boolean, t
     UPDATE files
     SET has_translation = ?, translation_filename = ?, translation_size = ?, updated_at = CURRENT_TIMESTAMP
     WHERE name = ?
-  `).run(hasTranslation, translationFilename, translationSize, name);
+  `).run(hasTranslation ? 1 : 0, translationFilename, translationSize, name);
 }
 
 export function deleteFile(name: string): void {

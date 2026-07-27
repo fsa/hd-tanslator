@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Button, ButtonGroup, Badge, Spinner } from 'react-bootstrap';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Button, ButtonGroup, Badge, Spinner, Modal, ListGroup, Form } from 'react-bootstrap';
 import CodeEditor from './CodeEditor';
 import TranslationEditor from './TranslationEditor';
 
@@ -10,6 +10,7 @@ interface QuestFile {
   original_filename: string;
   translation_filename: string | null;
   has_translation: boolean;
+  approved: boolean;
 }
 
 interface QuestEditorProps {
@@ -29,6 +30,57 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   const [error, setError] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
   const [approving, setApproving] = useState(false);
+
+  // Unsaved changes confirmation state
+  const [showConfirm, setShowConfirm] = useState(false);
+  const pendingActionRef = useRef<(() => void) | null>(null);
+
+  // File list modal state
+  const [showFileList, setShowFileList] = useState(false);
+
+  // Hide-diff toggle (persisted in localStorage)
+  const [hideDiff, setHideDiff] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('questEditor_hideDiff') === 'true';
+    }
+    return false;
+  });
+
+  const hasUnsavedChanges = translationContent !== savedTranslation;
+
+  // ---- beforeunload handler: browser close / refresh / external nav ----
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges]);
+
+  // ---- helper: guard navigation with confirmation ----
+  const guardNav = useCallback((action: () => void) => {
+    if (hasUnsavedChanges) {
+      pendingActionRef.current = action;
+      setShowConfirm(true);
+    } else {
+      action();
+    }
+  }, [hasUnsavedChanges]);
+
+  const confirmDiscard = useCallback(() => {
+    setShowConfirm(false);
+    const action = pendingActionRef.current;
+    pendingActionRef.current = null;
+    action?.();
+  }, []);
+
+  const cancelNav = useCallback(() => {
+    setShowConfirm(false);
+    pendingActionRef.current = null;
+  }, []);
 
   useEffect(() => {
     fetchFiles();
@@ -103,17 +155,23 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     }
   };
 
+  const goToFile = useCallback((index: number) => {
+    setShowFileList(false);
+    if (index === currentIndex) return;
+    guardNav(() => setCurrentIndex(index));
+  }, [currentIndex, guardNav]);
+
   const goPrev = useCallback(() => {
     if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
+      guardNav(() => setCurrentIndex(currentIndex - 1));
     }
-  }, [currentIndex]);
+  }, [currentIndex, guardNav]);
 
   const goNext = useCallback(() => {
     if (currentIndex < files.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+      guardNav(() => setCurrentIndex(currentIndex + 1));
     }
-  }, [currentIndex, files.length]);
+  }, [currentIndex, files.length, guardNav]);
 
   const handleSave = useCallback(async () => {
     if (files.length === 0) return;
@@ -147,7 +205,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
 
   const handleRefresh = () => {
     if (files.length === 0) return;
-    loadContent(files[currentIndex].name);
+    guardNav(() => loadContent(files[currentIndex].name));
   };
 
   const handleCopyOriginal = async () => {
@@ -176,6 +234,10 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
 
       if (response.ok) {
         setApproved(newApproved);
+        // Also update the files list so the modal reflects the change
+        setFiles(prev => prev.map((f, i) =>
+          i === currentIndex ? { ...f, approved: newApproved } : f
+        ));
       } else {
         setError('Failed to update approval status');
       }
@@ -185,6 +247,35 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       setApproving(false);
     }
   };
+
+  const handleQuestsClick = useCallback((e: React.MouseEvent) => {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      guardNav(() => { window.location.href = '/quests'; });
+    }
+    // If no unsaved changes, let the <a> navigate normally
+  }, [hasUnsavedChanges, guardNav]);
+
+  // ---- Ctrl+S / Cmd+S keyboard shortcut ----
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleSave]);
+
+  // ---- Hide-diff toggle handler ----
+  const handleToggleHideDiff = useCallback(() => {
+    setHideDiff(prev => {
+      const next = !prev;
+      localStorage.setItem('questEditor_hideDiff', String(next));
+      return next;
+    });
+  }, []);
 
   if (loading) {
     return (
@@ -200,7 +291,13 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     <div className="d-flex flex-column" style={{ height: '100vh' }}>
       <div className="d-flex align-items-center justify-content-between px-3 py-2 border-bottom bg-light">
         <div className="d-flex align-items-center gap-2">
-          <a href="/quests" className="btn btn-outline-secondary btn-sm">&larr; Quests</a>
+          <a
+            href="/quests"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={handleQuestsClick}
+          >
+            &larr; Quests
+          </a>
           <h5 className="mb-0">{quest}</h5>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -212,7 +309,10 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
             >
               &larr; Prev
             </Button>
-            <Button variant="outline-secondary" disabled>
+            <Button
+              variant="outline-secondary"
+              onClick={() => setShowFileList(true)}
+            >
               {currentIndex + 1} / {files.length}
             </Button>
             <Button
@@ -230,19 +330,9 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           )}
         </div>
         <div className="d-flex align-items-center gap-2">
-          <ButtonGroup size="sm">
-            <Button
-              variant="primary"
-              onClick={handleSave}
-              disabled={saveStatus === 'saving'}
-            >
-              {saveStatus === 'saving' ? 'Saving...' : 'Save'}
-            </Button>
-            <Button variant="outline-secondary" onClick={handleRefresh}>
-              Refresh
-            </Button>
-          </ButtonGroup>
-          {saveStatus === 'saved' && <Badge bg="success">Saved</Badge>}
+          <Button variant="outline-secondary" size="sm" onClick={handleRefresh}>
+            Refresh
+          </Button>
         </div>
       </div>
       {error && (
@@ -285,6 +375,14 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               <span className="text-muted" style={{ fontSize: '0.85em' }}>
                 {currentFile?.translation_filename || '(not created)'}
               </span>
+              <Form.Check
+                type="switch"
+                id="hide-diff-switch"
+                label="diff"
+                checked={!hideDiff}
+                onChange={handleToggleHideDiff}
+                style={{ fontSize: '0.8em' }}
+              />
             </div>
             <div className="d-flex align-items-center gap-2">
               <Button
@@ -300,6 +398,14 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
                 ) : (
                   <>&#10007; Unapproved</>
                 )}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSave}
+                disabled={saveStatus === 'saving'}
+              >
+                {saveStatus === 'saving' ? 'Saving...' : 'Save'}
               </Button>
               <Button
                 variant="outline-secondary"
@@ -321,10 +427,66 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               onChange={setTranslationContent}
               className="flex-grow-1"
               style={{ minHeight: '300px' }}
+              hideDiff={hideDiff}
             />
           )}
         </div>
       </div>
+
+      {/* Unsaved changes confirmation modal */}
+      <Modal show={showConfirm} onHide={cancelNav} centered backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>Unsaved changes</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>You have unsaved changes to the translation. What would you like to do?</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="danger" onClick={confirmDiscard}>
+            Discard changes
+          </Button>
+          <Button variant="primary" onClick={cancelNav}>
+            Stay and save
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* File list navigation modal */}
+      <Modal show={showFileList} onHide={() => setShowFileList(false)} size="lg" scrollable>
+        <Modal.Header closeButton>
+          <Modal.Title>Quest files — {quest}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-0">
+          <ListGroup variant="flush">
+            {files.map((file, index) => (
+              <ListGroup.Item
+                key={file.name}
+                action
+                active={index === currentIndex}
+                onClick={() => goToFile(index)}
+                className="d-flex align-items-center justify-content-between py-2 px-3"
+              >
+                <div className="d-flex align-items-center gap-2">
+                  <span className="text-muted" style={{ minWidth: '2em' }}>{file.file_id}.</span>
+                  <span>{file.original_filename}</span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  {file.has_translation ? (
+                    <Badge bg="success">translated</Badge>
+                  ) : (
+                    <Badge bg="secondary">original</Badge>
+                  )}
+                  {file.approved ? (
+                    <Badge bg="success">&#10003; approved</Badge>
+                  ) : (
+                    <Badge bg="danger">&#10007; unapproved</Badge>
+                  )}
+                </div>
+              </ListGroup.Item>
+            ))}
+          </ListGroup>
+        </Modal.Body>
+      </Modal>
     </div>
   );
 }

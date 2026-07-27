@@ -34,11 +34,13 @@ export const GET: APIRoute = async ({ params }) => {
 
     const db = getDb();
     const files = db.prepare(`
-      SELECT id, name, file_id, original_filename, has_translation,
-             translation_filename, original_size, translation_size
-      FROM files
-      WHERE character = ? AND section = ? AND quest = ?
-      ORDER BY CAST(file_id AS INTEGER)
+      SELECT f.id, f.name, f.file_id, f.original_filename, f.has_translation,
+             f.translation_filename, f.original_size, f.translation_size,
+             COALESCE(m.approved, 0) AS approved
+      FROM files f
+      LEFT JOIN file_metadata m ON m.file_name = f.name
+      WHERE f.character = ? AND f.section = ? AND f.quest = ?
+      ORDER BY CAST(f.file_id AS INTEGER)
     `).all(character, section, quest);
 
     return new Response(JSON.stringify({ files }), {

@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { DiffEditor } from '@monaco-editor/react';
+import { DiffEditor, Editor } from '@monaco-editor/react';
 import { checkSpelling, hasSpellCheck } from '../lib/spellcheck';
 
 interface TranslationEditorProps {
@@ -8,6 +8,7 @@ interface TranslationEditorProps {
   onChange: (value: string) => void;
   className?: string;
   style?: React.CSSProperties;
+  hideDiff?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -244,7 +245,7 @@ async function spellCheckMarkers(model: any, monaco: any, text: string): Promise
 // Component
 // ---------------------------------------------------------------------------
 
-export default function TranslationEditor({ value, original, onChange, className, style }: TranslationEditorProps) {
+export default function TranslationEditor({ value, original, onChange, className, style, hideDiff }: TranslationEditorProps) {
   const editorRef = useRef<any>(null);
 
   const handleEditorMount = (editor: any, monaco: any) => {
@@ -298,52 +299,84 @@ export default function TranslationEditor({ value, original, onChange, className
     });
   }, [value]);
 
+  const commonOptions = {
+    wordWrap: 'on' as const,
+    fontSize: 14,
+    fontFamily: 'monospace',
+    lineHeight: 21,
+    padding: { top: 10 },
+    automaticLayout: true,
+    scrollBeyondLastLine: false,
+    unicodeHighlight: { nonBasicASCII: false, ambiguousCharacters: false },
+    minimap: { enabled: false },
+    scrollbar: {
+      vertical: 'auto' as const,
+      horizontal: 'auto' as const,
+    },
+    lineNumbers: 'on' as const,
+    lineNumbersMinChars: 2,
+    glyphMargin: false,
+    folding: false,
+  };
+
   return (
     <div className={className} style={{ ...style }}>
-      <DiffEditor
-        original={original}
-        modified={value}
-        language="gamescript"
-        onMount={handleEditorMount}
-        options={{
-          wordWrap: 'on',
-          fontSize: 14,
-          fontFamily: 'monospace',
-          lineHeight: 21,
-          padding: { top: 10 },
-          automaticLayout: true,
-          scrollBeyondLastLine: false,
-          unicodeHighlight: { nonBasicASCII: false, ambiguousCharacters: false },
-          renderSideBySide: false,
-          readOnly: false,
-          originalEditable: false,
-          enableSplitViewResizing: false,
-          diffAlgorithm: 'advanced',
-          renderMarginRevertIcon: false,
-          hideUnchangedRegions: {
-            enabled: false,
-          },
-          minimap: { enabled: false },
-          scrollbar: {
-            vertical: 'auto',
-            horizontal: 'auto',
-          },
-          renderOverviewRuler: true,
-          overviewRulerBorder: true,
-          originalEditor: {
-            lineNumbers: 'off',
-            lineNumbersMinChars: 1,
-            glyphMargin: false,
-            folding: false,
-          },
-          modifiedEditor: {
-            lineNumbers: 'on',
-            lineNumbersMinChars: 2,
-            glyphMargin: false,
-            folding: false,
-          },
-        } as any}
-      />
+      {hideDiff ? (
+        <Editor
+          height="100%"
+          language="gamescript"
+          value={value}
+          onChange={(val) => onChange(val || '')}
+          onMount={(editor, monaco) => {
+            defineGameScriptLanguage(monaco);
+            monaco.editor.setTheme('gamescript-theme');
+            editorRef.current = editor;
+            updateNameDecorations(editor, value);
+            const model = editor.getModel();
+            if (model) {
+              const whitespaceMarkers = computeWhitespaceMarkers(value, monaco);
+              monaco.editor.setModelMarkers(model, 'whitespace', whitespaceMarkers);
+            }
+          }}
+          options={{
+            ...commonOptions,
+            readOnly: false,
+          }}
+          theme="gamescript-theme"
+        />
+      ) : (
+        <DiffEditor
+          original={original}
+          modified={value}
+          language="gamescript"
+          onMount={handleEditorMount}
+          options={{
+            ...commonOptions,
+            readOnly: false,
+            originalEditable: false,
+            enableSplitViewResizing: false,
+            diffAlgorithm: 'advanced',
+            renderMarginRevertIcon: false,
+            hideUnchangedRegions: {
+              enabled: false,
+            },
+            renderOverviewRuler: true,
+            overviewRulerBorder: true,
+            originalEditor: {
+              lineNumbers: 'off',
+              lineNumbersMinChars: 1,
+              glyphMargin: false,
+              folding: false,
+            },
+            modifiedEditor: {
+              lineNumbers: 'on',
+              lineNumbersMinChars: 2,
+              glyphMargin: false,
+              folding: false,
+            },
+          } as any}
+        />
+      )}
     </div>
   );
 }
