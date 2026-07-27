@@ -225,6 +225,32 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     const newApproved = !approved;
 
     setApproving(true);
+
+    // Save first if there are unsaved changes
+    if (hasUnsavedChanges) {
+      try {
+        const saveResponse = await fetch(`/api/files/${currentFile.name}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: translationContent })
+        });
+        if (saveResponse.ok) {
+          setSavedTranslation(translationContent);
+          setFiles(prev => prev.map((f, i) =>
+            i === currentIndex ? { ...f, has_translation: true, translation_filename: `${f.name}.txt` } : f
+          ));
+        } else {
+          setError('Failed to save before approving');
+          setApproving(false);
+          return;
+        }
+      } catch (err) {
+        setError('Failed to save before approving');
+        setApproving(false);
+        return;
+      }
+    }
+
     try {
       const response = await fetch(`/api/files/${currentFile.name}/metadata`, {
         method: 'POST',
