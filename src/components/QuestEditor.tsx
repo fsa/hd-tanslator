@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button, ButtonGroup, Badge, Spinner, Modal, ListGroup, Form } from 'react-bootstrap';
 import CodeEditor from './CodeEditor';
 import TranslationEditor from './TranslationEditor';
@@ -46,6 +46,13 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     }
     return false;
   });
+
+  // Hidden textarea ref for paste without browser permission prompt
+  const hiddenInputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Quest-level stats
+  const translatedCount = useMemo(() => files.filter(f => f.has_translation).length, [files]);
+  const approvedCount = useMemo(() => files.filter(f => f.approved).length, [files]);
 
   const hasUnsavedChanges = translationContent !== savedTranslation;
 
@@ -216,18 +223,34 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePaste = async () => {
-    if (hasUnsavedChanges) {
-      // Show confirmation before overwriting unsaved changes
-      pendingActionRef.current = async () => {
-        const text = await navigator.clipboard.readText();
+  const handlePaste = () => {
+    const doPaste = () => {
+      // Use a hidden textarea to capture paste without browser permission prompt
+      const textarea = document.createElement('textarea');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      textarea.style.pointerEvents = 'none';
+      document.body.appendChild(textarea);
+      textarea.focus();
+
+      const onPaste = (e: ClipboardEvent) => {
+        e.preventDefault();
+        const text = e.clipboardData?.getData('text/plain') || '';
+        document.body.removeChild(textarea);
+        textarea.removeEventListener('paste', onPaste);
         setTranslationContent(text);
       };
+
+      textarea.addEventListener('paste', onPaste);
+      document.execCommand('paste');
+    };
+
+    if (hasUnsavedChanges) {
+      pendingActionRef.current = doPaste;
       setConfirmContext('paste');
       setShowConfirm(true);
     } else {
-      const text = await navigator.clipboard.readText();
-      setTranslationContent(text);
+      doPaste();
     }
   };
 
@@ -337,6 +360,16 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
             &larr; Quests
           </a>
           <h5 className="mb-0">{quest}</h5>
+          {files.length > 0 && (
+            <div className="d-flex align-items-center gap-1 ms-2">
+              <Badge bg="secondary" className="me-1">
+                {translatedCount}/{files.length}
+              </Badge>
+              <Badge bg={approvedCount === files.length ? 'success' : approvedCount === 0 ? 'danger' : 'warning'}>
+                {approvedCount === files.length ? 'done' : approvedCount === 0 ? 'none' : `${approvedCount}/${files.length}`}
+              </Badge>
+            </div>
+          )}
         </div>
         <div className="d-flex align-items-center gap-2">
           <ButtonGroup size="sm">
