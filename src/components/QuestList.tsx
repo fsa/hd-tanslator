@@ -138,16 +138,16 @@ export default function QuestList() {
         <>
           <Nav variant="tabs" className="mb-3">
             {characters.map(char => {
-              const visible = char === 'ALL'
-                ? filteredQuests.length
-                : filteredQuests.filter(q => q.character === char).length;
+              const count = char === 'ALL'
+                ? quests.length
+                : quests.filter(q => q.character === char).length;
               return (
                 <Nav.Item key={char}>
                   <Nav.Link
                     active={effectiveCharacter === char}
                     onClick={() => handleCharacterChange(char)}
                   >
-                    {char} <Badge bg="secondary" className="ms-1">{visible}</Badge>
+                    {char} <Badge bg="secondary" className="ms-1">{count}</Badge>
                   </Nav.Link>
                 </Nav.Item>
               );
