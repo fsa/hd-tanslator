@@ -33,6 +33,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
 
   // Unsaved changes confirmation state
   const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmContext, setConfirmContext] = useState<'navigate' | 'paste'>('navigate');
   const pendingActionRef = useRef<(() => void) | null>(null);
 
   // File list modal state
@@ -64,6 +65,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   const guardNav = useCallback((action: () => void) => {
     if (hasUnsavedChanges) {
       pendingActionRef.current = action;
+      setConfirmContext('navigate');
       setShowConfirm(true);
     } else {
       action();
@@ -215,8 +217,18 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   };
 
   const handlePaste = async () => {
-    const text = await navigator.clipboard.readText();
-    setTranslationContent(text);
+    if (hasUnsavedChanges) {
+      // Show confirmation before overwriting unsaved changes
+      pendingActionRef.current = async () => {
+        const text = await navigator.clipboard.readText();
+        setTranslationContent(text);
+      };
+      setConfirmContext('paste');
+      setShowConfirm(true);
+    } else {
+      const text = await navigator.clipboard.readText();
+      setTranslationContent(text);
+    }
   };
 
   const handleToggleApproved = async () => {
@@ -465,14 +477,18 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           <Modal.Title>Unsaved changes</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>You have unsaved changes to the translation. What would you like to do?</p>
+          {confirmContext === 'paste' ? (
+            <p>Pasting will overwrite your unsaved changes. What would you like to do?</p>
+          ) : (
+            <p>You have unsaved changes to the translation. What would you like to do?</p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="danger" onClick={confirmDiscard}>
-            Discard changes
+            {confirmContext === 'paste' ? 'Paste and lose changes' : 'Discard changes'}
           </Button>
           <Button variant="primary" onClick={cancelNav}>
-            Stay and save
+            {confirmContext === 'paste' ? 'Cancel paste' : 'Stay and save'}
           </Button>
         </Modal.Footer>
       </Modal>
