@@ -236,3 +236,53 @@ export function getDistinctDirectories(): string[] {
   const rows = db.prepare('SELECT DISTINCT directory FROM file_metadata ORDER BY directory').all() as { directory: string }[];
   return rows.map(r => r.directory).filter(d => d !== '');
 }
+
+export interface TranslationStats {
+  total_files: number;
+  translated_files: number;
+  approved_files: number;
+  total_quests: number;
+  ready_quests: number;
+}
+
+export function getTranslationStats(): TranslationStats {
+  const db = getDb();
+
+  // File-level stats
+  const totalFiles = (db.prepare('SELECT COUNT(*) as count FROM files').get() as { count: number }).count;
+  const translatedFiles = (db.prepare('SELECT COUNT(*) as count FROM files WHERE has_translation = 1').get() as { count: number }).count;
+  const approvedFiles = (db.prepare(`
+    SELECT COUNT(DISTINCT f.name) as count
+    FROM files f
+    INNER JOIN file_metadata m ON f.name = m.file_name
+    WHERE m.approved = 1
+  `).get() as { count: number }).count;
+
+  // Quest-level stats: a quest = group by character, section, quest
+  // A quest is "ready" when ALL its files are translated AND approved
+  const questStats = db.prepare(`
+    SELECT
+      COUNT(*) as total_quests,
+      SUM(CASE WHEN translated_count = total_count AND approved_count = total_count THEN 1 ELSE 0 END) as ready_quests
+    FROM (
+      SELECT
+        f.character,
+        f.section,
+        f.quest,
+        COUNT(*) as total_count,
+        SUM(CASE WHEN f.has_translation THEN 1 ELSE 0 END) as translated_count,
+        COALESCE(SUM(CASE WHEN m.approved = 1 THEN 1 ELSE 0 END), 0) as approved_count
+      FROM files f
+      LEFT JOIN file_metadata m ON f.name = m.file_name
+      GROUP BY f.character, f.section, f.quest
+    )
+  `).get() as { total_quests: number; ready_quests: number };
+
+  return {
+    total_files: totalFiles,
+    translated_files: translatedFiles,
+    approved_files: approvedFiles,
+    total_quests: questStats.total_quests,
+    ready_quests: questStats.ready_quests
+  };
+}
