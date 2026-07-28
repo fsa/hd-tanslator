@@ -79,6 +79,7 @@ export default function QuestList() {
 
   const effectiveCharacter = activeCharacter || characters[0] || 'ALL';
 
+  // Quest list filtered by active character and hide-approved toggle
   const filteredQuests = useMemo(() => {
     let result = quests;
     if (effectiveCharacter !== 'ALL') {
@@ -89,6 +90,18 @@ export default function QuestList() {
     }
     return result;
   }, [quests, effectiveCharacter, hideApproved]);
+
+  // Visible count per character (for tab badges) — independent of active tab
+  const visibleCountByChar = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const q of quests) {
+      if (!hideApproved || q.approved_count < q.file_count) {
+        counts[q.character] = (counts[q.character] || 0) + 1;
+        counts['ALL'] = (counts['ALL'] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [quests, hideApproved]);
 
   const hiddenCount = useMemo(() => {
     if (!hideApproved) return 0;
@@ -137,24 +150,16 @@ export default function QuestList() {
       ) : (
         <>
           <Nav variant="tabs" className="mb-3">
-            {characters.map(char => {
-              const total = char === 'ALL'
-                ? quests.length
-                : quests.filter(q => q.character === char).length;
-              const visible = char === 'ALL'
-                ? filteredQuests.length
-                : filteredQuests.filter(q => q.character === char).length;
-              return (
-                <Nav.Item key={char}>
-                  <Nav.Link
-                    active={effectiveCharacter === char}
-                    onClick={() => handleCharacterChange(char)}
-                  >
-                    {char} <Badge bg="secondary" className="ms-1">{visible}</Badge>
-                  </Nav.Link>
-                </Nav.Item>
-              );
-            })}
+            {characters.map(char => (
+              <Nav.Item key={char}>
+                <Nav.Link
+                  active={effectiveCharacter === char}
+                  onClick={() => handleCharacterChange(char)}
+                >
+                  {char} <Badge bg="secondary" className="ms-1">{visibleCountByChar[char] || 0}</Badge>
+                </Nav.Link>
+              </Nav.Item>
+            ))}
           </Nav>
           {filteredQuests.length === 0 && hiddenCount > 0 ? (
             <div className="text-muted text-center py-5">
