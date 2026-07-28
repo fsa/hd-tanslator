@@ -47,18 +47,12 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     return false;
   });
 
-  // Render whitespace mode (persisted in localStorage)
-  // Cycles through: none → all → boundary → none
-  const WHITESPACE_MODES = ['none', 'all', 'boundary'] as const;
-  type WhitespaceMode = typeof WHITESPACE_MODES[number];
-  const [whitespaceMode, setWhitespaceMode] = useState<WhitespaceMode>(() => {
+  // Render whitespace toggle (persisted in localStorage)
+  const [renderWhitespace, setRenderWhitespace] = useState(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('questEditor_whitespaceMode');
-      if (saved && WHITESPACE_MODES.includes(saved as WhitespaceMode)) {
-        return saved as WhitespaceMode;
-      }
+      return localStorage.getItem('questEditor_renderWhitespace') === 'true';
     }
-    return 'none';
+    return false;
   });
 
   // Hidden textarea ref for paste without browser permission prompt
@@ -336,12 +330,11 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     });
   }, []);
 
-  // ---- Render whitespace cycle handler ----
-  const handleCycleWhitespaceMode = useCallback(() => {
-    setWhitespaceMode(prev => {
-      const idx = WHITESPACE_MODES.indexOf(prev);
-      const next = WHITESPACE_MODES[(idx + 1) % WHITESPACE_MODES.length];
-      localStorage.setItem('questEditor_whitespaceMode', next);
+  // ---- Render whitespace toggle handler ----
+  const handleToggleRenderWhitespace = useCallback(() => {
+    setRenderWhitespace(prev => {
+      const next = !prev;
+      localStorage.setItem('questEditor_renderWhitespace', String(next));
       return next;
     });
   }, []);
@@ -453,29 +446,27 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               <span className="text-muted" style={{ fontSize: '0.85em' }}>
                 {currentFile?.translation_filename || '(not created)'}
               </span>
+              <Form.Check
+                type="switch"
+                id="hide-diff-switch"
+                label="diff"
+                checked={!hideDiff}
+                onChange={handleToggleHideDiff}
+                style={{ fontSize: '0.8em', marginBottom: 0 }}
+                className="d-inline-flex align-items-center m-0"
+              />
+              <Form.Check
+                type="switch"
+                id="render-whitespace-switch"
+                label="&#182;"
+                checked={renderWhitespace}
+                onChange={handleToggleRenderWhitespace}
+                style={{ fontSize: '0.8em', marginBottom: 0 }}
+                className="d-inline-flex align-items-center m-0"
+                title="Show whitespace characters"
+              />
             </div>
             <div className="d-flex align-items-center gap-2">
-              <div className="d-flex align-items-center" style={{ lineHeight: 1 }}>
-                <Form.Check
-                  type="switch"
-                  id="hide-diff-switch"
-                  label="diff"
-                  checked={!hideDiff}
-                  onChange={handleToggleHideDiff}
-                  style={{ fontSize: '0.8em', marginBottom: 0 }}
-                />
-              </div>
-              <div className="d-flex align-items-center" style={{ lineHeight: 1 }}>
-                <Form.Check
-                  type="switch"
-                  id="render-whitespace-switch"
-                  label={whitespaceMode === 'none' ? '&#182;' : whitespaceMode === 'all' ? '&#182; all' : '&#182; bnd'}
-                  checked={whitespaceMode !== 'none'}
-                  onChange={handleCycleWhitespaceMode}
-                  style={{ fontSize: '0.8em', marginBottom: 0 }}
-                  title={`Show whitespace: ${whitespaceMode === 'none' ? 'off' : whitespaceMode === 'all' ? 'all' : 'boundary'}`}
-                />
-              </div>
               <Button
                 variant={approved ? 'success' : 'danger'}
                 size="sm"
@@ -519,7 +510,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               className="flex-grow-1"
               style={{ minHeight: '300px' }}
               hideDiff={hideDiff}
-              whitespaceMode={whitespaceMode}
+              renderWhitespace={renderWhitespace}
             />
           )}
         </div>
