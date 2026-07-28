@@ -224,21 +224,16 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   };
 
   const handlePaste = async () => {
-    // Read clipboard in the user gesture context
-    let text: string;
-    try {
-      text = await navigator.clipboard.readText();
-    } catch {
-      setError('Cannot read clipboard. Make sure clipboard access is allowed.');
-      return;
-    }
-
     if (hasUnsavedChanges) {
-      // Store the text and show confirmation
-      pendingActionRef.current = () => setTranslationContent(text);
+      // Show confirmation before overwriting unsaved changes
+      pendingActionRef.current = async () => {
+        const text = await navigator.clipboard.readText();
+        setTranslationContent(text);
+      };
       setConfirmContext('paste');
       setShowConfirm(true);
     } else {
+      const text = await navigator.clipboard.readText();
       setTranslationContent(text);
     }
   };
