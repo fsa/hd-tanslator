@@ -223,34 +223,23 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePaste = () => {
-    const doPaste = () => {
-      // Use a hidden textarea to capture paste without browser permission prompt
-      const textarea = document.createElement('textarea');
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      textarea.style.pointerEvents = 'none';
-      document.body.appendChild(textarea);
-      textarea.focus();
-
-      const onPaste = (e: ClipboardEvent) => {
-        e.preventDefault();
-        const text = e.clipboardData?.getData('text/plain') || '';
-        document.body.removeChild(textarea);
-        textarea.removeEventListener('paste', onPaste);
-        setTranslationContent(text);
-      };
-
-      textarea.addEventListener('paste', onPaste);
-      document.execCommand('paste');
-    };
+  const handlePaste = async () => {
+    // Read clipboard in the user gesture context
+    let text: string;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      setError('Cannot read clipboard. Make sure clipboard access is allowed.');
+      return;
+    }
 
     if (hasUnsavedChanges) {
-      pendingActionRef.current = doPaste;
+      // Store the text and show confirmation
+      pendingActionRef.current = () => setTranslationContent(text);
       setConfirmContext('paste');
       setShowConfirm(true);
     } else {
-      doPaste();
+      setTranslationContent(text);
     }
   };
 
