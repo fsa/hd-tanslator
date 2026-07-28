@@ -47,6 +47,14 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     return false;
   });
 
+  // Render whitespace toggle (persisted in localStorage)
+  const [renderWhitespace, setRenderWhitespace] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('questEditor_renderWhitespace') === 'true';
+    }
+    return false;
+  });
+
   // Hidden textarea ref for paste without browser permission prompt
   const hiddenInputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -322,6 +330,15 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     });
   }, []);
 
+  // ---- Render whitespace toggle handler ----
+  const handleToggleRenderWhitespace = useCallback(() => {
+    setRenderWhitespace(prev => {
+      const next = !prev;
+      localStorage.setItem('questEditor_renderWhitespace', String(next));
+      return next;
+    });
+  }, []);
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100">
@@ -429,6 +446,8 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               <span className="text-muted" style={{ fontSize: '0.85em' }}>
                 {currentFile?.translation_filename || '(not created)'}
               </span>
+            </div>
+            <div className="d-flex align-items-center gap-2">
               <Form.Check
                 type="switch"
                 id="hide-diff-switch"
@@ -437,8 +456,15 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
                 onChange={handleToggleHideDiff}
                 style={{ fontSize: '0.8em' }}
               />
-            </div>
-            <div className="d-flex align-items-center gap-2">
+              <Form.Check
+                type="switch"
+                id="render-whitespace-switch"
+                label="&#182;"
+                checked={renderWhitespace}
+                onChange={handleToggleRenderWhitespace}
+                style={{ fontSize: '0.8em' }}
+                title="Show whitespace characters"
+              />
               <Button
                 variant={approved ? 'success' : 'danger'}
                 size="sm"
@@ -482,6 +508,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               className="flex-grow-1"
               style={{ minHeight: '300px' }}
               hideDiff={hideDiff}
+              renderWhitespace={renderWhitespace}
             />
           )}
         </div>

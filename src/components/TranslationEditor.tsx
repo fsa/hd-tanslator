@@ -9,6 +9,7 @@ interface TranslationEditorProps {
   className?: string;
   style?: React.CSSProperties;
   hideDiff?: boolean;
+  renderWhitespace?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -245,7 +246,7 @@ async function spellCheckMarkers(model: any, monaco: any, text: string): Promise
 // Component
 // ---------------------------------------------------------------------------
 
-export default function TranslationEditor({ value, original, onChange, className, style, hideDiff }: TranslationEditorProps) {
+export default function TranslationEditor({ value, original, onChange, className, style, hideDiff, renderWhitespace }: TranslationEditorProps) {
   const editorRef = useRef<any>(null);
 
   const handleEditorMount = (editor: any, monaco: any) => {
@@ -299,6 +300,8 @@ export default function TranslationEditor({ value, original, onChange, className
     });
   }, [value]);
 
+  const renderWhitespaceValue = renderWhitespace ? 'all' as const : 'none' as const;
+
   const commonOptions = {
     wordWrap: 'on' as const,
     fontSize: 14,
@@ -317,6 +320,7 @@ export default function TranslationEditor({ value, original, onChange, className
     lineNumbersMinChars: 2,
     glyphMargin: false,
     folding: false,
+    renderWhitespace: renderWhitespaceValue,
   };
 
   return (
