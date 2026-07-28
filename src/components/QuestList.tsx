@@ -141,16 +141,13 @@ export default function QuestList() {
               const visible = char === 'ALL'
                 ? filteredQuests.length
                 : filteredQuests.filter(q => q.character === char).length;
-              const total = char === 'ALL'
-                ? quests.length
-                : quests.filter(q => q.character === char).length;
               return (
                 <Nav.Item key={char}>
                   <Nav.Link
                     active={effectiveCharacter === char}
                     onClick={() => handleCharacterChange(char)}
                   >
-                    {char} <Badge bg="secondary" className="ms-1">{visible}{hideApproved && visible < total ? `/${total}` : ''}</Badge>
+                    {char} <Badge bg="secondary" className="ms-1">{visible}</Badge>
                   </Nav.Link>
                 </Nav.Item>
               );
