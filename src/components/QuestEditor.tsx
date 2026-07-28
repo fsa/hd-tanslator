@@ -344,16 +344,6 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
             &larr; Quests
           </a>
           <h5 className="mb-0">{quest}</h5>
-          {files.length > 0 && (
-            <div className="d-flex align-items-center gap-1 ms-2">
-              <Badge bg="secondary" className="me-1">
-                {translatedCount}/{files.length}
-              </Badge>
-              <Badge bg={approvedCount === files.length ? 'success' : approvedCount === 0 ? 'danger' : 'warning'}>
-                {approvedCount === files.length ? 'done' : approvedCount === 0 ? 'none' : `${approvedCount}/${files.length}`}
-              </Badge>
-            </div>
-          )}
         </div>
         <div className="d-flex align-items-center gap-2">
           <ButtonGroup size="sm">
@@ -378,10 +368,19 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               Next &rarr;
             </Button>
           </ButtonGroup>
-          {currentFile && (
-            <Badge bg={currentFile.has_translation ? 'success' : 'secondary'}>
-              {currentFile.has_translation ? 'translated' : 'original'}
-            </Badge>
+          {files.length > 0 && (
+            <>
+              <Badge
+                bg={translatedCount === files.length ? 'success' : translatedCount === 0 ? 'secondary' : 'primary'}
+              >
+                {translatedCount === files.length ? 'translated' : `${translatedCount}/${files.length}`}
+              </Badge>
+              <Badge
+                bg={approvedCount === files.length ? 'success' : approvedCount === 0 ? 'danger' : 'warning'}
+              >
+                {approvedCount === files.length ? 'approved' : approvedCount === 0 ? 'unapproved' : `${approvedCount}/${files.length}`}
+              </Badge>
+            </>
           )}
         </div>
         <div className="d-flex align-items-center gap-2">
