@@ -5,6 +5,7 @@ export interface SettingDefaults {
   ORIGINALS_DIR: string;
   TRANSLATIONS_DIR: string;
   OPENROUTER_API_KEY: string;
+  PROXY_SERVER: string;
   LANG: string;
   AUTHOR: string;
 }
@@ -28,6 +29,7 @@ const DEFAULTS: SettingDefaults = (() => {
     ORIGINALS_DIR: import.meta.env.ORIGINALS_DIR || '',
     TRANSLATIONS_DIR: translationsDir,
     OPENROUTER_API_KEY: import.meta.env.OPENROUTER_API_KEY || '',
+    PROXY_SERVER: import.meta.env.PROXY_SERVER || '',
     LANG: lang,
     AUTHOR: author,
   };
@@ -57,6 +59,7 @@ export function getAllSettings(): SettingDefaults {
     ORIGINALS_DIR: overrides.ORIGINALS_DIR ?? DEFAULTS.ORIGINALS_DIR,
     TRANSLATIONS_DIR: overrides.TRANSLATIONS_DIR ?? DEFAULTS.TRANSLATIONS_DIR,
     OPENROUTER_API_KEY: overrides.OPENROUTER_API_KEY ?? DEFAULTS.OPENROUTER_API_KEY,
+    PROXY_SERVER: overrides.PROXY_SERVER ?? DEFAULTS.PROXY_SERVER,
     LANG: overrides.LANG ?? DEFAULTS.LANG,
     AUTHOR: overrides.AUTHOR ?? DEFAULTS.AUTHOR,
   };

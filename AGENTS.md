@@ -8,6 +8,8 @@
 - TypeScript
 - Bootstrap 5 (react-bootstrap)
 - SQLite (better-sqlite3)
+- Axios (HTTP-клиент для внешних API)
+- https-proxy-agent / http-proxy-agent (поддержка прокси)
 
 ## Структура файлов (имена)
 
@@ -123,9 +125,10 @@
 
 ## Маршруты
 
-- `/` — главное меню (Quests, Settings)
+- `/` — главное меню (Quests, Auto-Translators, Settings)
 - `/quests` — список квестов с прогрессом
 - `/editor/[quest]` — редактор квеста (split-view + навигация prev/next)
+- `/translators` — настройки автоматических переводчиков (провайдеры, промпты)
 - `/settings` — настройки
 
 ## API Endpoints
@@ -149,7 +152,13 @@
 - `POST /api/settings` `{ action: "save", key, value }` — сохранить настройку
 - `POST /api/settings` `{ action: "reset", key }` — сбросить на дефолт
 
-Ключи настроек: `ORIGINALS_DIR`, `TRANSLATIONS_DIR`, `OPENROUTER_API_KEY`
+Ключи настроек: `ORIGINALS_DIR`, `TRANSLATIONS_DIR`, `OPENROUTER_API_KEY`, `PROXY_SERVER`
+
+### Переводчики
+
+- `GET /api/translators` — список доступных провайдеров
+- `GET /api/translators/[provider]/prompt` — получить промпт (текущий, дефолтный, user instructions)
+- `POST /api/translators/[provider]/prompt` — управление промптами (actions: `save_prompt`, `reset_prompt`, `save_instructions`, `reset_instructions`)
 
 ## Хранилище настроек
 
@@ -161,6 +170,48 @@
 - `getAllSettings()` — все настройки с дефолтами
 
 При изменении настроек путей нужно делать реиндексацию через `/api/reindex`.
+
+## Модуль автоматического перевода
+
+### Архитектура
+
+```
+api-client.ts  ←──  translators/openrouter.ts  ←──  translators/index.ts
+     ↑                       ↑                            ↑
+  (proxy)            (использует apiRequest)      (фабрика, читает settings)
+     ↑
+settings.ts  ←──  .env / SQLite
+     ↑
+prompts.ts    ←──  src/prompts/*.txt (файлы-дефолты) + SQLite (override)
+```
+
+### Компоненты
+
+| Компонент | Файл | Назначение |
+|---|---|---|
+| `api-client` | [`src/lib/api-client.ts`](src/lib/api-client.ts) | Центральный HTTP-клиент (axios + proxy). Все сервисы используют `apiRequest()`. |
+| `TranslatorProvider` | [`src/lib/translators/types.ts`](src/lib/translators/types.ts) | Интерфейс провайдера перевода |
+| `OpenRouterProvider` | [`src/lib/translators/openrouter.ts`](src/lib/translators/openrouter.ts) | Провайдер OpenRouter |
+| `getProvider()` | [`src/lib/translators/index.ts`](src/lib/translators/index.ts) | Фабрика/реестр провайдеров |
+| `prompts` | [`src/lib/translators/prompts.ts`](src/lib/translators/prompts.ts) | Сервис управления промптами (файл → БД) |
+| `TranslatorSettings` | [`src/components/TranslatorSettings.tsx`](src/components/TranslatorSettings.tsx) | UI настроек переводчиков |
+
+### Промпты
+
+Системные промпты хранятся в [`prompts/`](prompts/) в корне проекта:
+
+- [`system-default.txt`](prompts/system-default.txt) — дефолтный системный промпт на английском, описывающий формат GameScript
+
+Пользователь может переопределить промпт через UI (`/translators`). Переопределённый промпт сохраняется в БД (таблица `settings`, ключи `translator_prompt_{providerId}`). Файл на диске **не изменяется**.
+
+Промпт содержит плейсхолдеры:
+- `{sourceLang}` — язык оригинала
+- `{targetLang}` — язык перевода
+- `{userInstructions}` — пользовательские инструкции (дополняются через UI)
+
+### Прокси
+
+Настройка `PROXY_SERVER` (HTTP/HTTPS прокси для API-запросов) задаётся в `.env` или через UI Settings. Поддерживается через `https-proxy-agent` / `http-proxy-agent` в `api-client.ts`.
 
 ## Запуск
 

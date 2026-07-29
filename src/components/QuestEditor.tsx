@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Button, ButtonGroup, Badge, Spinner, Modal, ListGroup, Form } from 'react-bootstrap';
+import { Button, ButtonGroup, Badge, Spinner, Modal, ListGroup, Form, Dropdown } from 'react-bootstrap';
 import CodeEditor from './CodeEditor';
 import TranslationEditor from './TranslationEditor';
 
@@ -17,6 +17,11 @@ interface QuestEditorProps {
   quest: string;
 }
 
+interface ProviderInfo {
+  id: string;
+  name: string;
+}
+
 export default function QuestEditor({ quest }: QuestEditorProps) {
   const [files, setFiles] = useState<QuestFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -31,9 +36,16 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   const [approved, setApproved] = useState(false);
   const [approving, setApproving] = useState(false);
 
+  // Auto-translate state
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string>('openrouter');
+  const [translating, setTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState<string | null>(null);
+  const [showTranslateModal, setShowTranslateModal] = useState(false);
+
   // Unsaved changes confirmation state
   const [showConfirm, setShowConfirm] = useState(false);
-  const [confirmContext, setConfirmContext] = useState<'navigate' | 'paste'>('navigate');
+  const [confirmContext, setConfirmContext] = useState<'navigate' | 'paste' | 'translate'>('navigate');
   const pendingActionRef = useRef<(() => void) | null>(null);
 
   // File list modal state
@@ -101,6 +113,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
 
   useEffect(() => {
     fetchFiles();
+    fetchProviders();
   }, [quest]);
 
   useEffect(() => {
@@ -120,6 +133,19 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       setError('Failed to load quest files');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProviders = async () => {
+    try {
+      const response = await fetch('/api/translators');
+      const data = await response.json();
+      setProviders(data.providers || []);
+      if (data.providers?.length > 0) {
+        setSelectedProvider(data.providers[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to fetch providers:', err);
     }
   };
 
@@ -245,6 +271,51 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       setTranslationContent(text);
     }
   };
+
+  // ---- Auto-translate handler ----
+  const handleTranslate = useCallback(async () => {
+    if (!originalContent) return;
+
+    setTranslating(true);
+    setTranslateError(null);
+    setShowTranslateModal(true);
+
+    try {
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: originalContent,
+          provider: selectedProvider,
+          sourceLang: 'en',
+          targetLang: 'ru',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setTranslationContent(data.translated_text);
+        setShowTranslateModal(false);
+      } else {
+        setTranslateError(data.error || 'Translation failed');
+      }
+    } catch (err) {
+      setTranslateError(err instanceof Error ? err.message : 'Translation request failed');
+    } finally {
+      setTranslating(false);
+    }
+  }, [originalContent, selectedProvider]);
+
+  const guardTranslate = useCallback(() => {
+    if (hasUnsavedChanges) {
+      pendingActionRef.current = handleTranslate;
+      setConfirmContext('translate');
+      setShowConfirm(true);
+    } else {
+      handleTranslate();
+    }
+  }, [hasUnsavedChanges, handleTranslate]);
 
   const handleToggleApproved = async () => {
     if (files.length === 0) return;
@@ -421,9 +492,44 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
                 {currentFile?.original_filename}
               </span>
             </div>
-            <Button variant="outline-secondary" size="sm" onClick={handleCopyOriginal}>
-              {copied ? 'Copied!' : 'Copy'}
-            </Button>
+            <div className="d-flex gap-1">
+              <Dropdown as={ButtonGroup}>
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={guardTranslate}
+                  disabled={!originalContent || translating}
+                  title="Translate original text and replace translation"
+                >
+                  {translating ? <Spinner animation="border" size="sm" /> : 'Translate'}
+                </Button>
+                <Dropdown.Toggle
+                  split
+                  variant="outline-primary"
+                  size="sm"
+                  id="translate-dropdown"
+                  title="Select translation provider"
+                />
+                <Dropdown.Menu>
+                  {providers.length === 0 ? (
+                    <Dropdown.Item disabled>No providers</Dropdown.Item>
+                  ) : (
+                    providers.map(p => (
+                      <Dropdown.Item
+                        key={p.id}
+                        active={selectedProvider === p.id}
+                        onClick={() => setSelectedProvider(p.id)}
+                      >
+                        {p.name}
+                      </Dropdown.Item>
+                    ))
+                  )}
+                </Dropdown.Menu>
+              </Dropdown>
+              <Button variant="outline-secondary" size="sm" onClick={handleCopyOriginal}>
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
           </div>
           {contentLoading ? (
             <div className="d-flex justify-content-center align-items-center flex-grow-1">
@@ -522,20 +628,60 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           <Modal.Title>Unsaved changes</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {confirmContext === 'paste' ? (
+          {confirmContext === 'paste' && (
             <p>Pasting will overwrite your unsaved changes. What would you like to do?</p>
-          ) : (
+          )}
+          {confirmContext === 'translate' && (
+            <p>Auto-translate will overwrite your unsaved changes. What would you like to do?</p>
+          )}
+          {confirmContext === 'navigate' && (
             <p>You have unsaved changes to the translation. What would you like to do?</p>
           )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="danger" onClick={confirmDiscard}>
-            {confirmContext === 'paste' ? 'Paste and lose changes' : 'Discard changes'}
+            {confirmContext === 'paste' && 'Paste and lose changes'}
+            {confirmContext === 'translate' && 'Translate and lose changes'}
+            {confirmContext === 'navigate' && 'Discard changes'}
           </Button>
           <Button variant="primary" onClick={cancelNav}>
-            {confirmContext === 'paste' ? 'Cancel paste' : 'Stay and save'}
+            {confirmContext === 'paste' && 'Cancel paste'}
+            {confirmContext === 'translate' && 'Cancel translate'}
+            {confirmContext === 'navigate' && 'Stay and save'}
           </Button>
         </Modal.Footer>
+      </Modal>
+
+      {/* Translation status modal */}
+      <Modal show={showTranslateModal} onHide={() => { if (!translating) setShowTranslateModal(false); }} centered backdrop="static">
+        <Modal.Header closeButton={!translating}>
+          <Modal.Title>
+            {translating ? 'Translating...' : translateError ? 'Translation failed' : 'Translation complete'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {translating && (
+            <div className="text-center py-3">
+              <Spinner animation="border" className="mb-3" />
+              <p className="mb-0 text-muted">
+                Translating via <strong>{providers.find(p => p.id === selectedProvider)?.name || selectedProvider}</strong>...
+              </p>
+            </div>
+          )}
+          {!translating && translateError && (
+            <div className="py-2">
+              <p className="text-danger mb-1">An error occurred during translation:</p>
+              <p className="mb-0 font-monospace small bg-light p-2 rounded">{translateError}</p>
+            </div>
+          )}
+        </Modal.Body>
+        {!translating && (
+          <Modal.Footer>
+            <Button variant="primary" onClick={() => setShowTranslateModal(false)}>
+              {translateError ? 'Close' : 'OK'}
+            </Button>
+          </Modal.Footer>
+        )}
       </Modal>
 
       {/* File list navigation modal */}

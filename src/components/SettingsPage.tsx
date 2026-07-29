@@ -5,6 +5,7 @@ interface Settings {
   ORIGINALS_DIR: string;
   TRANSLATIONS_DIR: string;
   OPENROUTER_API_KEY: string;
+  PROXY_SERVER: string;
   LANG: string;
   AUTHOR: string;
 }
@@ -12,7 +13,7 @@ interface Settings {
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [defaults, setDefaults] = useState<Settings | null>(null);
-  const [editValues, setEditValues] = useState<Settings>({ ORIGINALS_DIR: '', TRANSLATIONS_DIR: '', OPENROUTER_API_KEY: '', LANG: '', AUTHOR: '' });
+  const [editValues, setEditValues] = useState<Settings>({ ORIGINALS_DIR: '', TRANSLATIONS_DIR: '', OPENROUTER_API_KEY: '', PROXY_SERVER: '', LANG: '', AUTHOR: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [reindexing, setReindexing] = useState(false);
@@ -268,6 +269,9 @@ export default function SettingsPage() {
 
       <h5 className="mt-4">API Keys</h5>
       {renderSetting('OPENROUTER_API_KEY', 'OpenRouter API Key', 'password')}
+
+      <h5 className="mt-4">Proxy</h5>
+      {renderSetting('PROXY_SERVER', 'Proxy Server')}
 
       <hr className="my-4" />
 

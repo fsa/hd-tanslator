@@ -167,6 +167,19 @@ export default function MainMenu() {
                 </Card.Body>
               </Card>
             </a>
+            <a href="/translators" className="text-decoration-none">
+              <Card className="h-100 shadow-sm">
+                <Card.Body className="d-flex align-items-center">
+                  <div className="me-3 fs-1">&#129302;</div>
+                  <div>
+                    <Card.Title className="mb-1">Auto-Translators</Card.Title>
+                    <Card.Text className="text-muted mb-0">
+                      Configure AI translation providers and prompts
+                    </Card.Text>
+                  </div>
+                </Card.Body>
+              </Card>
+            </a>
             <a href="/settings" className="text-decoration-none">
               <Card className="h-100 shadow-sm">
                 <Card.Body className="d-flex align-items-center">
