@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [directories, setDirectories] = useState<string[]>([]);
   const [selectedDirectory, setSelectedDirectory] = useState<string>('');
   const [loadingDirs, setLoadingDirs] = useState(false);
+  const [dateInFilename, setDateInFilename] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -136,14 +137,19 @@ export default function SettingsPage() {
     setExporting(true);
     setError(null);
     try {
-      const response = await fetch(`/api/metadata/export?directory=${encodeURIComponent(selectedDirectory)}`);
+      const params = new URLSearchParams({
+        directory: selectedDirectory,
+        date_in_filename: String(dateInFilename),
+      });
+      const response = await fetch(`/api/metadata/export?${params}`);
       if (!response.ok) throw new Error('Export failed');
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selectedDirectory}-metadata-${new Date().toISOString().slice(0, 10)}.json`;
+      const datePart = dateInFilename ? `-${new Date().toISOString().slice(0, 10)}` : '';
+      a.download = `${selectedDirectory}-metadata${datePart}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -314,6 +320,15 @@ export default function SettingsPage() {
           Select which translation directory to export metadata for.
         </Form.Text>
       </Form.Group>
+
+      <Form.Check
+        type="switch"
+        id="date-in-filename-switch"
+        label="Include date in filename"
+        checked={dateInFilename}
+        onChange={(e) => setDateInFilename(e.target.checked)}
+        className="mb-3"
+      />
 
       <div className="d-flex gap-2">
         <Button

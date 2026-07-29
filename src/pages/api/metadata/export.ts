@@ -7,6 +7,7 @@ export const prerender = false;
 export const GET: APIRoute = async ({ url }) => {
   try {
     const directory = url.searchParams.get('directory') || getMetadataDirectory();
+    const dateInFilename = url.searchParams.get('date_in_filename') !== 'false';
     const metadata = exportAllMetadata(directory);
 
     const exportData = {
@@ -16,7 +17,8 @@ export const GET: APIRoute = async ({ url }) => {
       metadata
     };
 
-    const filename = `${directory}-metadata-${new Date().toISOString().slice(0, 10)}.json`;
+    const datePart = dateInFilename ? `-${new Date().toISOString().slice(0, 10)}` : '';
+    const filename = `${directory}-metadata${datePart}.json`;
 
     return new Response(JSON.stringify(exportData, null, 2), {
       status: 200,
