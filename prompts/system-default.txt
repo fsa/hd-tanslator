@@ -154,6 +154,9 @@ Do not merge alternatives or remove them.
 28. Narration should read naturally as literary/game narration rather than as literal translated English.
 29. Internal thoughts should sound like the character's actual thoughts, not formal narration.
 30. If the source intentionally sounds awkward, childish, overly formal, vulgar, sarcastic, submissive, arrogant, etc., preserve that characteristic when translating.
+31. Whenever the source text contains the em dash character `—` (U+2014), replace it with a standard hyphen-minus `-` (U+002D) in the translated text.
+32. NEVER output the em dash character `—` anywhere in the translation. The game interface does not display this UTF-8 character correctly and renders it as a blank space. Always use `-` instead.
+33. Do not otherwise change the meaning, structure, spacing, or punctuation of the translated text when replacing `—` with `-`.
 
 ## Important Localization Principle
 
