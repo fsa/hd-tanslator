@@ -1,17 +1,24 @@
 import type { TranslatorProvider, TranslatorProviderId, TranslatorConfig } from './types';
 import { OpenRouterProvider } from './openrouter';
+import { OllamaProvider } from './ollama';
 import { getSetting } from '../settings';
-import { getModel } from './prompts';
+import { getModel, getBaseUrl } from './prompts';
 import { resetClient } from '../api-client';
 
 /** Registry of available provider constructors */
 const PROVIDER_REGISTRY: Record<TranslatorProviderId, new (config: TranslatorConfig) => TranslatorProvider> = {
   openrouter: OpenRouterProvider,
+  ollama: OllamaProvider,
 };
 
 /** Cached provider instance (singleton per provider type) */
 let cachedProvider: TranslatorProvider | null = null;
 let cachedProviderId: TranslatorProviderId | null = null;
+
+/**
+ * Providers that do not require an API key.
+ */
+const NO_API_KEY_PROVIDERS: Set<TranslatorProviderId> = new Set(['ollama']);
 
 /**
  * Get or create a translator provider instance.
@@ -33,15 +40,21 @@ export function getProvider(providerId: TranslatorProviderId = 'openrouter'): Tr
     throw new Error(`Unknown translator provider: ${providerId}`);
   }
 
-  const apiKey = getSetting('OPENROUTER_API_KEY');
-  if (!apiKey) {
-    throw new Error(`API key for ${providerId} is not configured. Set it in Settings.`);
+  // Only require API key for providers that need it
+  let apiKey = '';
+  if (!NO_API_KEY_PROVIDERS.has(providerId)) {
+    apiKey = getSetting('OPENROUTER_API_KEY');
+    if (!apiKey) {
+      throw new Error(`API key for ${providerId} is not configured. Set it in Settings.`);
+    }
   }
 
   const model = getModel(providerId);
+  const baseUrl = getBaseUrl(providerId);
   const config: TranslatorConfig = {
     apiKey,
     model: model || undefined,
+    baseUrl: baseUrl || undefined,
   };
 
   cachedProvider = new Constructor(config);
@@ -67,6 +80,7 @@ export function getAvailableProviders(): Array<{ id: TranslatorProviderId; name:
   // (we don't call the constructor since we may not have an API key yet)
   const nameMap: Record<TranslatorProviderId, string> = {
     openrouter: 'OpenRouter',
+    ollama: 'Ollama (Local LLM)',
   };
 
   return (Object.keys(PROVIDER_REGISTRY) as TranslatorProviderId[]).map((id) => ({

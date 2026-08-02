@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getSystemPrompt, setSystemPrompt, getDefaultSystemPrompt, getUserInstructions, setUserInstructions, getModel, setModel, resetModel } from '../../../../lib/translators/prompts';
+import { getSystemPrompt, setSystemPrompt, getDefaultSystemPrompt, getUserInstructions, setUserInstructions, getModel, setModel, resetModel, getBaseUrl, setBaseUrl, resetBaseUrl } from '../../../../lib/translators/prompts';
 
 export const prerender = false;
 
@@ -17,6 +17,7 @@ export const GET: APIRoute = async ({ params }) => {
     const defaultPrompt = getDefaultSystemPrompt();
     const userInstructions = getUserInstructions(provider as string);
     const model = getModel(provider as string);
+    const baseUrl = getBaseUrl(provider as string);
 
     return new Response(JSON.stringify({
       provider,
@@ -24,6 +25,7 @@ export const GET: APIRoute = async ({ params }) => {
       default: defaultPrompt,
       user_instructions: userInstructions,
       model,
+      base_url: baseUrl,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
@@ -92,6 +94,22 @@ export const POST: APIRoute = async ({ params, request }) => {
 
     if (action === 'reset_model') {
       resetModel(provider as string);
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'save_base_url') {
+      setBaseUrl(provider as string, value || '');
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'reset_base_url') {
+      resetBaseUrl(provider as string);
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }

@@ -6,7 +6,7 @@
  */
 
 /** Supported translator provider identifiers */
-export type TranslatorProviderId = 'openrouter';
+export type TranslatorProviderId = 'openrouter' | 'ollama';
 
 /** A single message in a chat conversation */
 export interface ChatMessage {

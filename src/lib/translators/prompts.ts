@@ -159,6 +159,45 @@ export function resetModel(providerId: string): void {
 }
 
 /**
+ * Get the base URL override for a provider from the DB.
+ * Returns the URL string or null if not set (use provider default).
+ */
+export function getBaseUrl(providerId: string): string | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT value FROM settings WHERE key = ?')
+    .get(`translator_base_url_${providerId}`) as { value: string } | undefined;
+
+  return row?.value || null;
+}
+
+/**
+ * Save a base URL override for a provider to the DB.
+ * Pass an empty string to clear the override.
+ */
+export function setBaseUrl(providerId: string, url: string): void {
+  const db = getDb();
+  const key = `translator_base_url_${providerId}`;
+
+  if (url.trim()) {
+    db.prepare(
+      `INSERT INTO settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+    ).run(key, url);
+  } else {
+    db.prepare('DELETE FROM settings WHERE key = ?').run(key);
+  }
+}
+
+/**
+ * Clear the base URL override for a provider (revert to default).
+ */
+export function resetBaseUrl(providerId: string): void {
+  const db = getDb();
+  db.prepare('DELETE FROM settings WHERE key = ?').run(`translator_base_url_${providerId}`);
+}
+
+/**
  * Save user instructions override for a provider.
  */
 export function setUserInstructions(providerId: string, instructions: string): void {

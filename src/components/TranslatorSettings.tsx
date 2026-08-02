@@ -12,6 +12,7 @@ interface PromptData {
   default: string;
   user_instructions: string;
   model: string | null;
+  base_url: string | null;
 }
 
 export default function TranslatorSettings() {
@@ -21,6 +22,7 @@ export default function TranslatorSettings() {
   const [editPrompt, setEditPrompt] = useState('');
   const [editInstructions, setEditInstructions] = useState('');
   const [editModel, setEditModel] = useState('');
+  const [editBaseUrl, setEditBaseUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadingPrompt, setLoadingPrompt] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
@@ -63,6 +65,7 @@ export default function TranslatorSettings() {
       setEditPrompt(data.current || data.default || '');
       setEditInstructions(data.user_instructions || '');
       setEditModel(data.model || '');
+      setEditBaseUrl(data.base_url || '');
     } catch (err) {
       setError('Failed to load prompt');
     } finally {
@@ -192,6 +195,55 @@ export default function TranslatorSettings() {
     }
   };
 
+  const handleSaveBaseUrl = async () => {
+    if (!selectedProvider) return;
+    setSaving('base_url');
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/translators/${selectedProvider}/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_base_url', value: editBaseUrl })
+      });
+      if (response.ok) {
+        setSuccess('Base URL saved');
+        setTimeout(() => setSuccess(null), 2000);
+      } else {
+        setError('Failed to save base URL');
+      }
+    } catch (err) {
+      setError('Failed to save base URL');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleResetBaseUrl = async () => {
+    if (!selectedProvider) return;
+    setSaving('base_url');
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch(`/api/translators/${selectedProvider}/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_base_url' })
+      });
+      if (response.ok) {
+        setEditBaseUrl('');
+        setSuccess('Base URL reset to default');
+        setTimeout(() => setSuccess(null), 2000);
+      } else {
+        setError('Failed to reset base URL');
+      }
+    } catch (err) {
+      setError('Failed to reset base URL');
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const handleResetInstructions = async () => {
     if (!selectedProvider) return;
     setSaving('instructions');
@@ -226,6 +278,7 @@ export default function TranslatorSettings() {
   }
 
   const hasPromptOverride = promptData && promptData.current !== promptData.default;
+  const isOllama = selectedProvider === 'ollama';
 
   return (
     <Container className="py-4">
@@ -305,15 +358,20 @@ export default function TranslatorSettings() {
             <Card.Body>
               <Card.Title>Model</Card.Title>
               <Card.Text className="text-muted small mb-3">
-                The AI model to use for translations. Default is <code>openrouter/free</code>.
-                You can set any model ID supported by OpenRouter (e.g. <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3-haiku</code>).
+                {isOllama ? (
+                  <>The AI model to use for translations. Default is <code>llama3</code>.
+                  You can set any model available in your Ollama instance (e.g. <code>llama3.1</code>, <code>mistral</code>, <code>qwen2.5</code>).</>
+                ) : (
+                  <>The AI model to use for translations. Default is <code>openrouter/free</code>.
+                  You can set any model ID supported by OpenRouter (e.g. <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3-haiku</code>).</>
+                )}
               </Card.Text>
               <Form.Group className="mb-3">
                 <Form.Control
                   type="text"
                   value={editModel}
                   onChange={(e) => setEditModel(e.target.value)}
-                  placeholder="openrouter/free"
+                  placeholder={isOllama ? 'llama3' : 'openrouter/free'}
                 />
               </Form.Group>
               <div className="d-flex gap-2">
@@ -334,6 +392,43 @@ export default function TranslatorSettings() {
               </div>
             </Card.Body>
           </Card>
+
+          {/* Base URL (shown for Ollama) */}
+          {isOllama && (
+            <Card className="mb-4">
+              <Card.Body>
+                <Card.Title>Base URL</Card.Title>
+                <Card.Text className="text-muted small mb-3">
+                  The URL of your Ollama instance. Default is <code>http://localhost:11434</code>.
+                  For a remote instance, use the full URL (e.g. <code>http://192.168.1.100:11434</code>).
+                </Card.Text>
+                <Form.Group className="mb-3">
+                  <Form.Control
+                    type="text"
+                    value={editBaseUrl}
+                    onChange={(e) => setEditBaseUrl(e.target.value)}
+                    placeholder="http://localhost:11434"
+                  />
+                </Form.Group>
+                <div className="d-flex gap-2">
+                  <Button
+                    variant="primary"
+                    onClick={handleSaveBaseUrl}
+                    disabled={saving === 'base_url'}
+                  >
+                    {saving === 'base_url' ? <Spinner animation="border" size="sm" /> : 'Save Base URL'}
+                  </Button>
+                  <Button
+                    variant="outline-secondary"
+                    onClick={handleResetBaseUrl}
+                    disabled={saving === 'base_url' || !editBaseUrl}
+                  >
+                    Reset to Default
+                  </Button>
+                </div>
+              </Card.Body>
+            </Card>
+          )}
 
           {/* User Instructions */}
           <Card className="mb-4">
