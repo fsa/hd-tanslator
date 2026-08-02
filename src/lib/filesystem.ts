@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { getSetting } from './settings';
 
 function getOriginalsDir(): string {
@@ -104,4 +105,42 @@ export function translationFileExists(filename: string): boolean {
   }
 
   return fs.existsSync(filePath);
+}
+
+/**
+ * Compute a simple checksum for a file.
+ * Uses the first 8 bytes of SHA-256 (hex-encoded) for a good balance of
+ * speed and collision resistance. Returns null if the file is empty or doesn't exist.
+ */
+export function computeFileChecksum(filepath: string): string | null {
+  if (!fs.existsSync(filepath)) return null;
+
+  const stats = fs.statSync(filepath);
+  if (stats.size === 0) return null;
+
+  const fd = fs.openSync(filepath, 'r');
+  // Read first 8KB for checksum — enough for reliable dedup of text files
+  const buffer = Buffer.alloc(8192);
+  const bytesRead = fs.readSync(fd, buffer, 0, 8192, 0);
+  fs.closeSync(fd);
+
+  if (bytesRead === 0) return null;
+
+  const hash = crypto.createHash('sha256').update(buffer.subarray(0, bytesRead)).digest('hex');
+  // Use first 16 hex chars (8 bytes) for a compact but reliable checksum
+  return hash.slice(0, 16);
+}
+
+/**
+ * Compute checksum for an original file by its filename (in originals dir).
+ */
+export function getOriginalChecksum(filename: string): string | null {
+  const dir = getOriginalsDir();
+  const filePath = path.join(dir, filename);
+
+  if (!validatePath(filePath, dir)) {
+    throw new Error('Invalid file path');
+  }
+
+  return computeFileChecksum(filePath);
 }

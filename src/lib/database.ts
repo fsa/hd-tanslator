@@ -42,6 +42,7 @@ export function getDb(): Database.Database {
       translation_filename TEXT,
       original_size INTEGER,
       translation_size INTEGER,
+      original_checksum TEXT,
       indexed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -66,6 +67,17 @@ export function getDb(): Database.Database {
       FOREIGN KEY (file_name) REFERENCES files(name) ON DELETE CASCADE
     );
   `);
+
+  // Migration: add original_checksum column if missing (added in a later schema version)
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info('files')").all() as { name: string }[];
+    const hasChecksum = tableInfo.some(col => col.name === 'original_checksum');
+    if (!hasChecksum) {
+      db.exec(`ALTER TABLE files ADD COLUMN original_checksum TEXT`);
+    }
+  } catch {
+    // Ignore migration errors
+  }
 
   // Migration: recreate file_metadata with correct schema if it was created
   // during development before directory support was added
@@ -127,13 +139,14 @@ export function getFileByName(name: string): FileRecord | null {
 export function upsertFile(record: Omit<FileRecord, 'id' | 'indexed_at' | 'updated_at'>): void {
   const db = getDb();
   const stmt = db.prepare(`
-    INSERT INTO files (name, character, section, quest, file_id, original_filename, has_translation, translation_filename, original_size, translation_size)
-    VALUES (@name, @character, @section, @quest, @file_id, @original_filename, @has_translation, @translation_filename, @original_size, @translation_size)
+    INSERT INTO files (name, character, section, quest, file_id, original_filename, has_translation, translation_filename, original_size, translation_size, original_checksum)
+    VALUES (@name, @character, @section, @quest, @file_id, @original_filename, @has_translation, @translation_filename, @original_size, @translation_size, @original_checksum)
     ON CONFLICT(name) DO UPDATE SET
       has_translation = @has_translation,
       translation_filename = @translation_filename,
       original_size = @original_size,
       translation_size = @translation_size,
+      original_checksum = @original_checksum,
       updated_at = CURRENT_TIMESTAMP
   `);
   // Convert boolean to number for SQLite compatibility
@@ -191,6 +204,14 @@ export function deleteFileMetadata(fileName: string, directory: string): void {
   db.prepare('DELETE FROM file_metadata WHERE file_name = ? AND directory = ?').run(fileName, directory);
 }
 
+export function unapproveFile(fileName: string): void {
+  const db = getDb();
+  db.prepare(`
+    UPDATE file_metadata SET approved = 0, updated_at = CURRENT_TIMESTAMP
+    WHERE file_name = ?
+  `).run(fileName);
+}
+
 export function importMetadata(rows: { file_name: string; directory: string; approved: boolean }[]): number {
   const db = getDb();
   let count = 0;
@@ -235,6 +256,38 @@ export function getDistinctDirectories(): string[] {
   const db = getDb();
   const rows = db.prepare('SELECT DISTINCT directory FROM file_metadata ORDER BY directory').all() as { directory: string }[];
   return rows.map(r => r.directory).filter(d => d !== '');
+}
+
+export function getDuplicatesByChecksum(): { checksum: string; files: string[]; size: number }[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT original_checksum, GROUP_CONCAT(name ORDER BY name) as file_names, MAX(original_size) as size
+    FROM files
+    WHERE original_checksum IS NOT NULL AND original_checksum != ''
+    GROUP BY original_checksum
+    HAVING COUNT(*) > 1
+    ORDER BY COUNT(*) DESC
+  `).all() as { original_checksum: string; file_names: string; size: number }[];
+
+  return rows.map(r => ({
+    checksum: r.original_checksum,
+    files: r.file_names.split(','),
+    size: r.size
+  }));
+}
+
+export function getDuplicatesForFile(name: string): string[] {
+  const db = getDb();
+  const file = db.prepare('SELECT original_checksum FROM files WHERE name = ?').get(name) as { original_checksum: string } | undefined;
+  if (!file || !file.original_checksum) return [];
+
+  const rows = db.prepare(`
+    SELECT name FROM files
+    WHERE original_checksum = ? AND name != ?
+    ORDER BY name
+  `).all(file.original_checksum, name) as { name: string }[];
+
+  return rows.map(r => r.name);
 }
 
 export interface TranslationStats {

@@ -10,6 +10,7 @@ export interface FileRecord {
   translation_filename: string | null;
   original_size: number | null;
   translation_size: number | null;
+  original_checksum: string | null;
   indexed_at: string;
   updated_at: string;
 }
@@ -35,6 +36,12 @@ export interface ReindexResult {
   removed: number;
   total: number;
   warnings?: string[];
+}
+
+export interface DuplicateInfo {
+  checksum: string;
+  files: string[];
+  size: number;
 }
 
 export interface FileListItem {

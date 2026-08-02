@@ -1,16 +1,15 @@
 import fs from 'fs';
-import path from 'path';
 import type { FileMetadata, ReindexResult } from '../types';
 import {
   getAllFiles,
   upsertFile,
-  deleteFile,
-  updateTranslationStatus
+  unapproveFile
 } from './database';
 import {
   getOriginalFileSize,
   getTranslationFileSize,
-  translationFileExists
+  translationFileExists,
+  getOriginalChecksum
 } from './filesystem';
 import { getSetting } from './settings';
 
@@ -31,15 +30,19 @@ export function parseFilename(filename: string): FileMetadata | null {
 
 export function reindex(): ReindexResult {
   const originalsDir = getSetting('ORIGINALS_DIR');
-  const translationsDir = getSetting('TRANSLATIONS_DIR');
 
   // Get existing files from database
   const existingFiles = getAllFiles();
   const existingNames = new Set(existingFiles.map(f => f.name));
+  const existingByChecksum = new Map<string, FileMetadata & { original_checksum: string | null; original_size: number | null }>();
+  for (const f of existingFiles) {
+    existingByChecksum.set(f.name, f);
+  }
 
   // Scan originals directory
   let added = 0;
   let updated = 0;
+  let unapproved = 0;
   const scannedNames = new Set<string>();
   const warnings: string[] = [];
 
@@ -53,8 +56,22 @@ export function reindex(): ReindexResult {
       scannedNames.add(metadata.name);
 
       const originalSize = getOriginalFileSize(file);
+      const checksum = (originalSize && originalSize > 0) ? getOriginalChecksum(file) : null;
       const hasTranslation = translationFileExists(`${metadata.name}.txt`);
       const translationSize = hasTranslation ? getTranslationFileSize(`${metadata.name}.txt`) : null;
+
+      // Check if the original file has changed — if it existed before, was non-empty,
+      // and now has a different checksum, unapprove the translation
+      const existingRecord = existingByChecksum.get(metadata.name);
+      if (existingRecord &&
+          existingRecord.original_size != null && existingRecord.original_size > 0 &&
+          existingRecord.original_checksum != null && existingRecord.original_checksum !== '' &&
+          checksum != null &&
+          existingRecord.original_checksum !== checksum) {
+        unapproveFile(metadata.name);
+        unapproved++;
+        warnings.push(`Original file "${metadata.name}" has changed (checksum: ${existingRecord.original_checksum} → ${checksum}). Translation approval has been reset.`);
+      }
 
       upsertFile({
         name: metadata.name,
@@ -66,7 +83,8 @@ export function reindex(): ReindexResult {
         has_translation: hasTranslation,
         translation_filename: hasTranslation ? `${metadata.name}.txt` : null,
         original_size: originalSize ?? 0,
-        translation_size: translationSize ?? 0
+        translation_size: translationSize ?? 0,
+        original_checksum: checksum
       });
 
       if (existingNames.has(metadata.name)) {

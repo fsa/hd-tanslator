@@ -22,6 +22,14 @@ interface ProviderInfo {
   name: string;
 }
 
+interface DuplicateFileInfo {
+  name: string;
+  has_translation: boolean;
+  translation_filename: string | null;
+  approved: boolean;
+  original_filename: string;
+}
+
 export default function QuestEditor({ quest }: QuestEditorProps) {
   const [files, setFiles] = useState<QuestFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -35,6 +43,9 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
   const [error, setError] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [duplicateFiles, setDuplicateFiles] = useState<DuplicateFileInfo[]>([]);
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
+  const [duplicateLoading, setDuplicateLoading] = useState(false);
 
   // Auto-translate state
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
@@ -45,7 +56,7 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
 
   // Unsaved changes confirmation state
   const [showConfirm, setShowConfirm] = useState(false);
-  const [confirmContext, setConfirmContext] = useState<'navigate' | 'paste' | 'translate'>('navigate');
+  const [confirmContext, setConfirmContext] = useState<'navigate' | 'paste' | 'translate' | 'duplicate'>('navigate');
   const pendingActionRef = useRef<(() => void) | null>(null);
 
   // File list modal state
@@ -190,6 +201,16 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       } else {
         setApproved(false);
       }
+
+      // Check for duplicates
+      const dupResponse = await fetch(`/api/duplicates?file=${encodeURIComponent(fileName)}`);
+      if (dupResponse.ok) {
+        const dupData = await dupResponse.json();
+        setDuplicateFiles(dupData.duplicates || []);
+      } else {
+        setDuplicateFiles([]);
+      }
+      setShowDuplicatesModal(false);
     } catch (err) {
       console.error('Failed to load content:', err);
       setError('Failed to load file content');
@@ -269,6 +290,37 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
     } else {
       const text = await navigator.clipboard.readText();
       setTranslationContent(text);
+    }
+  };
+
+  const handleCopyDuplicateTranslation = useCallback(async (sourceFileName: string) => {
+    if (hasUnsavedChanges) {
+      pendingActionRef.current = async () => {
+        await doCopyDuplicateTranslation(sourceFileName);
+      };
+      setConfirmContext('duplicate');
+      setShowConfirm(true);
+      return;
+    }
+    await doCopyDuplicateTranslation(sourceFileName);
+  }, [hasUnsavedChanges]);
+
+  const doCopyDuplicateTranslation = async (sourceFileName: string) => {
+    setDuplicateLoading(true);
+    try {
+      const response = await fetch(`/api/files/${sourceFileName}/trans`);
+      if (response.ok) {
+        const text = await response.text();
+        const isMissing = response.headers.get('X-Translation-Status') === 'missing';
+        if (!isMissing) {
+          setTranslationContent(text);
+          setShowDuplicatesModal(false);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load duplicate translation:', err);
+    } finally {
+      setDuplicateLoading(false);
     }
   };
 
@@ -489,11 +541,21 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
       <div className="d-flex flex-grow-1" style={{ minHeight: 0 }}>
         <div className="d-flex flex-column border-end" style={{ flex: '1 1 45%', minWidth: 0 }}>
           <div className="p-2 border-bottom bg-light d-flex justify-content-between align-items-center">
-            <div>
+            <div className="d-flex align-items-center gap-2">
               <strong>Original</strong>
               <span className="text-muted ms-2" style={{ fontSize: '0.85em' }}>
                 {currentFile?.original_filename}
               </span>
+              {duplicateFiles.length > 0 && (
+                <Button
+                  variant="outline-info"
+                  size="sm"
+                  onClick={() => setShowDuplicatesModal(true)}
+                  title="Show duplicate files with identical content"
+                >
+                  Duplicates ({duplicateFiles.length})
+                </Button>
+              )}
             </div>
             <div className="d-flex gap-1">
               <Dropdown as={ButtonGroup}>
@@ -637,6 +699,9 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           {confirmContext === 'translate' && (
             <p>Auto-translate will overwrite your unsaved changes. What would you like to do?</p>
           )}
+          {confirmContext === 'duplicate' && (
+            <p>Copying a translation from a duplicate file will overwrite your unsaved changes. What would you like to do?</p>
+          )}
           {confirmContext === 'navigate' && (
             <p>You have unsaved changes to the translation. What would you like to do?</p>
           )}
@@ -645,11 +710,13 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
           <Button variant="danger" onClick={confirmDiscard}>
             {confirmContext === 'paste' && 'Paste and lose changes'}
             {confirmContext === 'translate' && 'Translate and lose changes'}
+            {confirmContext === 'duplicate' && 'Copy and lose changes'}
             {confirmContext === 'navigate' && 'Discard changes'}
           </Button>
           <Button variant="primary" onClick={cancelNav}>
             {confirmContext === 'paste' && 'Cancel paste'}
             {confirmContext === 'translate' && 'Cancel translate'}
+            {confirmContext === 'duplicate' && 'Cancel copy'}
             {confirmContext === 'navigate' && 'Stay and save'}
           </Button>
         </Modal.Footer>
@@ -722,6 +789,95 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
             ))}
           </ListGroup>
         </Modal.Body>
+      </Modal>
+
+      {/* Duplicate files modal */}
+      <Modal show={showDuplicatesModal} onHide={() => setShowDuplicatesModal(false)} size="lg" scrollable>
+        <Modal.Header closeButton>
+          <Modal.Title>Duplicate originals — {currentFile?.name}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-0">
+          {duplicateLoading ? (
+            <div className="d-flex justify-content-center align-items-center p-4">
+              <Spinner animation="border" size="sm" />
+            </div>
+          ) : duplicateFiles.length === 0 ? (
+            <p className="text-muted p-3 mb-0">No duplicate files found.</p>
+          ) : (
+            <>
+              {duplicateFiles.some(f => f.has_translation && f.approved) && (
+                <>
+                  <div className="px-3 py-2 bg-success bg-opacity-10 border-bottom">
+                    <strong className="text-success">Approved translations</strong>
+                  </div>
+                  <ListGroup variant="flush">
+                    {duplicateFiles.filter(f => f.has_translation && f.approved).map(file => (
+                      <ListGroup.Item
+                        key={file.name}
+                        action
+                        onClick={() => handleCopyDuplicateTranslation(file.name)}
+                        className="d-flex align-items-center justify-content-between py-2 px-3"
+                      >
+                        <div>
+                          <span className="text-muted me-2">{file.original_filename}</span>
+                        </div>
+                        <Badge bg="success">&#10003; approved</Badge>
+                      </ListGroup.Item>
+                    ))}
+                  </ListGroup>
+                </>
+              )}
+              {duplicateFiles.some(f => f.has_translation && !f.approved) && (
+                <>
+                  <div className="px-3 py-2 bg-warning bg-opacity-10 border-bottom">
+                    <strong className="text-warning">Unapproved translations</strong>
+                  </div>
+                  <ListGroup variant="flush">
+                    {duplicateFiles.filter(f => f.has_translation && !f.approved).map(file => (
+                      <ListGroup.Item
+                        key={file.name}
+                        action
+                        onClick={() => handleCopyDuplicateTranslation(file.name)}
+                        className="d-flex align-items-center justify-content-between py-2 px-3"
+                      >
+                        <div>
+                          <span className="text-muted me-2">{file.original_filename}</span>
+                        </div>
+                        <Badge bg="warning">&#10007; unapproved</Badge>
+                      </ListGroup.Item>
+                    ))}
+                  </ListGroup>
+                </>
+              )}
+              {duplicateFiles.some(f => !f.has_translation) && (
+                <>
+                  <div className="px-3 py-2 bg-secondary bg-opacity-10 border-bottom">
+                    <strong className="text-secondary">Not translated</strong>
+                  </div>
+                  <ListGroup variant="flush">
+                    {duplicateFiles.filter(f => !f.has_translation).map(file => (
+                      <ListGroup.Item
+                        key={file.name}
+                        disabled
+                        className="d-flex align-items-center justify-content-between py-2 px-3"
+                      >
+                        <div>
+                          <span className="text-muted me-2">{file.original_filename}</span>
+                        </div>
+                        <Badge bg="secondary">original</Badge>
+                      </ListGroup.Item>
+                    ))}
+                  </ListGroup>
+                </>
+              )}
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDuplicatesModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
       </Modal>
     </div>
   );

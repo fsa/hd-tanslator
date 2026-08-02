@@ -10,6 +10,21 @@ interface Settings {
   AUTHOR: string;
 }
 
+interface DuplicateInfo {
+  checksum: string;
+  files: string[];
+  size: number;
+}
+
+interface ReindexResult {
+  added: number;
+  updated: number;
+  removed: number;
+  total: number;
+  warnings?: string[];
+  duplicates?: DuplicateInfo[];
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [defaults, setDefaults] = useState<Settings | null>(null);
@@ -17,7 +32,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [reindexing, setReindexing] = useState(false);
-  const [reindexResult, setReindexResult] = useState<{ added: number; updated: number; removed: number; total: number } | null>(null);
+  const [reindexResult, setReindexResult] = useState<ReindexResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -278,6 +293,7 @@ export default function SettingsPage() {
       <h5>File Reindex</h5>
       <p className="text-muted">
         Scan the originals and translations directories and update the database index.
+        If an original file has changed (different checksum), its translation approval will be reset.
       </p>
       <Button
         variant="primary"
@@ -292,9 +308,21 @@ export default function SettingsPage() {
         ) : 'Reindex Files'}
       </Button>
       {reindexResult && (
-        <Alert variant="success" className="mt-3">
-          Done! Added: {reindexResult.added}, Updated: {reindexResult.updated}, Removed: {reindexResult.removed}. Total: {reindexResult.total}
-        </Alert>
+        <div className="mt-3">
+          <Alert variant="success" className="mb-2">
+            Done! Added: {reindexResult.added}, Updated: {reindexResult.updated}, Removed: {reindexResult.removed}. Total: {reindexResult.total}
+          </Alert>
+          {reindexResult.warnings && reindexResult.warnings.length > 0 && (
+            <Alert variant="warning" className="mb-2">
+              <strong>Warnings:</strong>
+              <ul className="mb-0 mt-1">
+                {reindexResult.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </Alert>
+          )}
+        </div>
       )}
 
       <hr className="my-4" />
