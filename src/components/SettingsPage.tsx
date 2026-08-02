@@ -8,6 +8,7 @@ interface Settings {
   PROXY_SERVER: string;
   LANG: string;
   AUTHOR: string;
+  METADATA_EXPORT_DIR: string;
 }
 
 interface DuplicateInfo {
@@ -28,7 +29,7 @@ interface ReindexResult {
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [defaults, setDefaults] = useState<Settings | null>(null);
-  const [editValues, setEditValues] = useState<Settings>({ ORIGINALS_DIR: '', TRANSLATIONS_DIR: '', OPENROUTER_API_KEY: '', PROXY_SERVER: '', LANG: '', AUTHOR: '' });
+  const [editValues, setEditValues] = useState<Settings>({ ORIGINALS_DIR: '', TRANSLATIONS_DIR: '', OPENROUTER_API_KEY: '', PROXY_SERVER: '', LANG: '', AUTHOR: '', METADATA_EXPORT_DIR: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [reindexing, setReindexing] = useState(false);
@@ -41,7 +42,7 @@ export default function SettingsPage() {
   const [directories, setDirectories] = useState<string[]>([]);
   const [selectedDirectory, setSelectedDirectory] = useState<string>('');
   const [loadingDirs, setLoadingDirs] = useState(false);
-  const [dateInFilename, setDateInFilename] = useState(true);
+  const [browserDownload, setBrowserDownload] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -155,25 +156,42 @@ export default function SettingsPage() {
     try {
       const params = new URLSearchParams({
         directory: selectedDirectory,
-        date_in_filename: String(dateInFilename),
+        browser_download: String(browserDownload),
       });
       const response = await fetch(`/api/metadata/export?${params}`);
-      if (!response.ok) throw new Error('Export failed');
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const datePart = dateInFilename ? `-${new Date().toISOString().slice(0, 10)}` : '';
-      a.download = `${selectedDirectory}-metadata${datePart}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      setSuccess('Metadata exported successfully');
-      setTimeout(() => setSuccess(null), 2000);
+      if (browserDownload) {
+        // Browser download: get the blob and trigger download
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || 'Export failed');
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const datePart = `-${new Date().toISOString().slice(0, 10)}`;
+        a.download = `${selectedDirectory}-metadata${datePart}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setSuccess('Metadata exported successfully');
+        setTimeout(() => setSuccess(null), 2000);
+      } else {
+        // Local save: read JSON response
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || 'Export failed');
+        }
+
+        const result = await response.json();
+        setSuccess(`Metadata exported successfully: ${result.filename} (${result.record_count} records)`);
+        setTimeout(() => setSuccess(null), 5000);
+      }
     } catch (err) {
-      setError('Failed to export metadata');
+      setError(err instanceof Error ? err.message : 'Failed to export metadata');
     } finally {
       setExporting(false);
     }
@@ -277,6 +295,7 @@ export default function SettingsPage() {
       <h5>File Paths</h5>
       {renderSetting('ORIGINALS_DIR', 'Originals Directory')}
       {renderSetting('TRANSLATIONS_DIR', 'Translations Directory')}
+      {renderSetting('METADATA_EXPORT_DIR', 'Metadata Export Directory')}
 
       <h5 className="mt-4">Translation Info</h5>
       {renderSetting('LANG', 'Language')}
@@ -355,10 +374,10 @@ export default function SettingsPage() {
 
       <Form.Check
         type="switch"
-        id="date-in-filename-switch"
-        label="Include date in filename"
-        checked={dateInFilename}
-        onChange={(e) => setDateInFilename(e.target.checked)}
+        id="browser-download-switch"
+        label="Download via browser"
+        checked={browserDownload}
+        onChange={(e) => setBrowserDownload(e.target.checked)}
         className="mb-3"
       />
 

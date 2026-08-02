@@ -546,9 +546,11 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
               <span className="text-muted ms-2" style={{ fontSize: '0.85em' }}>
                 {currentFile?.original_filename}
               </span>
+            </div>
+            <div className="d-flex gap-1">
               {duplicateFiles.length > 0 && (
                 <Button
-                  variant="outline-info"
+                  variant="outline-danger"
                   size="sm"
                   onClick={() => setShowDuplicatesModal(true)}
                   title="Show duplicate files with identical content"
@@ -556,8 +558,6 @@ export default function QuestEditor({ quest }: QuestEditorProps) {
                   Duplicates ({duplicateFiles.length})
                 </Button>
               )}
-            </div>
-            <div className="d-flex gap-1">
               <Dropdown as={ButtonGroup}>
                 <Button
                   variant="outline-primary"

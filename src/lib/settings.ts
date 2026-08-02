@@ -8,6 +8,7 @@ export interface SettingDefaults {
   PROXY_SERVER: string;
   LANG: string;
   AUTHOR: string;
+  METADATA_EXPORT_DIR: string;
 }
 
 function parseLangAuthorFromDir(dir: string): { lang: string; author: string } {
@@ -32,6 +33,7 @@ const DEFAULTS: SettingDefaults = (() => {
     PROXY_SERVER: import.meta.env.PROXY_SERVER || '',
     LANG: lang,
     AUTHOR: author,
+    METADATA_EXPORT_DIR: import.meta.env.METADATA_EXPORT_DIR || './metadata-exports',
   };
 })();
 
@@ -62,6 +64,7 @@ export function getAllSettings(): SettingDefaults {
     PROXY_SERVER: overrides.PROXY_SERVER ?? DEFAULTS.PROXY_SERVER,
     LANG: overrides.LANG ?? DEFAULTS.LANG,
     AUTHOR: overrides.AUTHOR ?? DEFAULTS.AUTHOR,
+    METADATA_EXPORT_DIR: overrides.METADATA_EXPORT_DIR ?? DEFAULTS.METADATA_EXPORT_DIR,
   };
 }
 
